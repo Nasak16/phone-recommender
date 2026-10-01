@@ -1,0 +1,209 @@
+[
+ {
+  "phone_id": "P01",
+  "model": "iPhone 15 Pro Max",
+  "brand": "Apple",
+  "tier": "เรือธง",
+  "image": "assets/phones/iphone-15-pro-max.jpg",
+  "image_title": "wikipedia:en:IPhone 15 Pro",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/IPhone_15_Pro_Vector.svg/500px-IPhone_15_Pro_Vector.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P02",
+  "model": "iPhone 15",
+  "brand": "Apple",
+  "tier": "เรือธง",
+  "image": "assets/phones/iphone-15.jpg",
+  "image_title": "wikipedia:en:IPhone 15",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/IPhone_15_Vector.svg/500px-IPhone_15_Vector.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P03",
+  "model": "iPhone 13",
+  "brand": "Apple",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/iphone-13.jpg",
+  "image_title": "wikipedia:en:IPhone 13",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/IPhone_13_vector.svg/500px-IPhone_13_vector.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P04",
+  "model": "iPhone SE (3rd gen)",
+  "brand": "Apple",
+  "tier": "ระดับเริ่มต้น",
+  "image": "assets/phones/iphone-se-3rd-gen.jpg",
+  "image_title": "File:Back of the iPhone SE (3rd generation).jpg",
+  "image_page": "https://commons.wikimedia.org/wiki/File:Back_of_the_iPhone_SE_(3rd_generation).jpg"
+ },
+ {
+  "phone_id": "P05",
+  "model": "Galaxy S24 Ultra",
+  "brand": "Samsung",
+  "tier": "เรือธง",
+  "image": "assets/phones/galaxy-s24-ultra.jpg",
+  "image_title": "File:Back view of Samsung Galaxy S24 Ultra Black.jpg",
+  "image_page": "https://upload.wikimedia.org/wikipedia/commons/0/05/Samsung_Galaxy_S24%2C_Sperrbildschirm.JPG?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+ },
+ {
+  "phone_id": "P06",
+  "model": "Galaxy S23",
+  "brand": "Samsung",
+  "tier": "เรือธง",
+  "image": "assets/phones/galaxy-s23.jpg",
+  "image_title": "File:Back of the Samsung Galaxy S23.jpg",
+  "image_page": "https://commons.wikimedia.org/wiki/File:Back_of_the_Samsung_Galaxy_S23.jpg"
+ },
+ {
+  "phone_id": "P07",
+  "model": "Galaxy A55",
+  "brand": "Samsung",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/galaxy-a55.jpg",
+  "image_title": "File:Galaxy A55.jpg",
+  "image_page": "https://commons.wikimedia.org/wiki/File:Galaxy_A55.jpg"
+ },
+ {
+  "phone_id": "P08",
+  "model": "Pixel 8 Pro",
+  "brand": "Google",
+  "tier": "เรือธง",
+  "image": "assets/phones/pixel-8-pro.jpg",
+  "image_title": "File:Google Pixel 8 Pro, shown in Shibuya Stream.jpg",
+  "image_page": "https://commons.wikimedia.org/wiki/File:Google_Pixel_8_Pro,_shown_in_Shibuya_Stream.jpg"
+ },
+ {
+  "phone_id": "P09",
+  "model": "Pixel 7a",
+  "brand": "Google",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/pixel-7a.jpg",
+  "image_title": "File:Google Pixel 7A.jpg",
+  "image_page": "https://commons.wikimedia.org/wiki/File:Google_Pixel_7a_front_middle_frame.jpg"
+ },
+ {
+  "phone_id": "P10",
+  "model": "Xiaomi 14",
+  "brand": "Xiaomi",
+  "tier": "เรือธง",
+  "image": "assets/phones/xiaomi-14.jpg",
+  "image_title": "wikipedia:en:Xiaomi 14",
+  "image_page": "https://upload.wikimedia.org/wikipedia/commons/c/c5/23116PN5BC.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+ },
+ {
+  "phone_id": "P11",
+  "model": "Redmi Note 14 Pro+",
+  "brand": "Xiaomi",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/redmi-note-14-pro.jpg",
+  "image_title": "File:Redmi Note 14 Pro+ (1).jpg",
+  "image_page": "https://upload.wikimedia.org/wikipedia/commons/0/09/SZ_%E6%B7%B1%E5%9C%B3_Shenzhen_shop_%E5%B0%8F%E7%B1%B3%E7%B4%85%E7%B1%B3%E5%95%86%E5%BA%97_Xiaomi_Redmi_Store_May_2024_R12S_06.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+ },
+ {
+  "phone_id": "P12",
+  "model": "POCO X3 Pro",
+  "brand": "Xiaomi",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/poco-x3-pro.jpg",
+  "image_title": "File:POCO X3 Pro running LineageOS 18.jpg",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/54/POCO_X3_Pro_running_LineageOS_18.jpg/1280px-POCO_X3_Pro_running_LineageOS_18.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P13",
+  "model": "Find X7 Ultra",
+  "brand": "OPPO",
+  "tier": "เรือธง",
+  "image": "assets/phones/find-x7-ultra.jpg",
+  "image_title": "wikipedia:en:Oppo Find X7",
+  "image_page": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Oppo_Find_X7_Ultra.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+ },
+ {
+  "phone_id": "P14",
+  "model": "Find X6 Pro",
+  "brand": "OPPO",
+  "tier": "เรือธง",
+  "image": "assets/phones/find-x6-pro.jpg",
+  "image_title": "File:Oppo Find X6 Pro.jpg",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Oppo_Find_X6_Pro.jpg/1280px-Oppo_Find_X6_Pro.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P15",
+  "model": "A78",
+  "brand": "OPPO",
+  "tier": "ระดับเริ่มต้น",
+  "image": "assets/phones/a78.jpg",
+  "image_title": "File:Oppo A78 4G Bagian depan Nyala normal dengan Always on display.jpg",
+  "image_page": "https://commons.wikimedia.org/wiki/File:Oppo_A78_4G_Bagian_depan_Nyala_normal_dengan_Always_on_display.jpg"
+ },
+ {
+  "phone_id": "P16",
+  "model": "vivo X200 Pro",
+  "brand": "vivo",
+  "tier": "เรือธง",
+  "image": "assets/phones/vivo-x200-pro.jpg",
+  "image_title": "File:Vivo X200 Pro blue.png",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/6f/VIVO_X100_and_X100_Pro%2C_January_28%2C_2024.jpg/960px-VIVO_X100_and_X100_Pro%2C_January_28%2C_2024.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P17",
+  "model": "Y36",
+  "brand": "vivo",
+  "tier": "ระดับเริ่มต้น",
+  "image": "assets/phones/y36.jpg",
+  "image_title": "File:VIVO Y36（2024年2月20日）.jpg",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f2/VIVO_Y36%EF%BC%882024%E5%B9%B42%E6%9C%8820%E6%97%A5%EF%BC%89.jpg/1280px-VIVO_Y36%EF%BC%882024%E5%B9%B42%E6%9C%8820%E6%97%A5%EF%BC%89.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P18",
+  "model": "realme 16 Pro",
+  "brand": "realme",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/realme-16-pro.jpg",
+  "image_title": "File:Back Smartphone The realme 16 Pro 2026-08-11 Titan battery 03.jpg",
+  "image_page": "https://upload.wikimedia.org/wikipedia/commons/c/c9/Back_Smartphone_The_realme_16_Pro_2026-08-11_Titan_battery_03.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled"
+ },
+ {
+  "phone_id": "P19",
+  "model": "C35",
+  "brand": "realme",
+  "tier": "ระดับเริ่มต้น",
+  "image": "assets/phones/c35.jpg",
+  "image_title": "wikipedia:en:Realme C35",
+  "image_page": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Front_of_realme_C35.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled"
+ },
+ {
+  "phone_id": "P20",
+  "model": "OnePlus 13R",
+  "brand": "OnePlus",
+  "tier": "ระดับกลาง",
+  "image": "assets/phones/oneplus-13r.jpg",
+  "image_title": "File:OnePlus 13R back.jpg",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/OnePlus_13R_back.jpg/1280px-OnePlus_13R_back.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P21",
+  "model": "ROG Phone 6",
+  "brand": "ASUS",
+  "tier": "เรือธง",
+  "image": "assets/phones/rog-phone-6.jpg",
+  "image_title": "File:ROG Phone 6 display model.png",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5d/ROG_Phone_8_Pro_Edition_sample_20240127.jpg/960px-ROG_Phone_8_Pro_Edition_sample_20240127.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P22",
+  "model": "Honor Magic6 Pro",
+  "brand": "Honor",
+  "tier": "เรือธง",
+  "image": "assets/phones/honor-magic6-pro.jpg",
+  "image_title": "File:Honor Magic 6 Pro white Back.jpg",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c1/Honor_Magic_6_Pro_white_Back.jpg/960px-Honor_Magic_6_Pro_white_Back.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+ },
+ {
+  "phone_id": "P23",
+  "model": "Xperia 1 V",
+  "brand": "Sony",
+  "tier": "เรือธง",
+  "image": "assets/phones/xperia-1-v.jpg",
+  "image_title": "File:Sony Xperia 1 Mk. V with a White Case.jpg",
+  "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bc/Sony_Xperia_1_Mk._V_with_a_White_Case.jpg/1920px-Sony_Xperia_1_Mk._V_with_a_White_Case.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
+ }
+]
