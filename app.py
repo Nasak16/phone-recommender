@@ -257,10 +257,12 @@ with tabs[3]:
     st.caption("แก้ข้อมูลในฐานข้อมูลกราฟจริง แล้วคำนวณใหม่ทันที — ไม่ต้องเทรนโมเดลใหม่")
     state = st.session_state.get("before")
     allphones = engine.phones()
+    liked_ids = {p["phone_id"] for p in engine.liked_phones(who)}
+    fresh = [p for p in allphones if p["phone_id"] not in liked_ids]   # รุ่นที่ยังไม่สนใจ → กดแล้วเห็นผลเปลี่ยนแน่
     cc1, cc2, cc3 = st.columns([2, 2, 1])
     with cc1:
-        pick = st.selectbox("เลือกให้ " + who + " สนใจรุ่นนี้",
-                            [f"{p['phone_id']} · {p['brand']} {p['model']}" for p in allphones])
+        pick = st.selectbox("เลือกให้ " + who + " สนใจรุ่นนี้ (แสดงเฉพาะรุ่นที่ยังไม่สนใจ)",
+                            [f"{p['phone_id']} · {p['brand']} {p['model']}" for p in fresh])
     with cc2:
         st.write("ผลก่อน–หลังจะแสดงด้านล่าง")
     with cc3:
