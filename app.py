@@ -25,22 +25,37 @@ def _secret(key, default=None):
         return os.environ.get(key, default)
 
 
-@st.cache_resource(show_spinner="กำลังเชื่อมต่อฐานข้อมูลกราฟ…")
 def get_engine():
-    """ใช้ Neo4j ก่อน ถ้าต่อไม่ได้ให้ใช้ backend สำรองในหน่วยความจำ (ข้อมูลชุดเดียวกัน)"""
-    from recommender import PhoneRecommender
-    from graph_fallback import from_files
+    """เลือก backend อัตโนมัติ
 
-    uri = _secret("NEO4J_URI", os.environ.get("NEO4J_URI", "bolt://127.0.0.1:7687"))
+    1) ถ้ามีการตั้งค่า Neo4j (secrets/env) → ต่อ Neo4j จริง
+    2) ถ้าไม่มี/ต่อไม่ได้ → โหมดสาธิตในหน่วยความจำ **แยกต่อผู้เข้าชม 1 คน**
+       (ทดลองกดเพิ่ม/ลบความสนใจได้โดยไม่รบกวนคนอื่น และไม่ต้องมีเซิร์ฟเวอร์)
+    """
+    uri = _secret("NEO4J_URI", os.environ.get("NEO4J_URI", "")) or ""
     user = _secret("NEO4J_USER", os.environ.get("NEO4J_USER", "neo4j"))
-    pw = _secret("NEO4J_PASSWORD", os.environ.get("NEO4J_PASSWORD", ""))
+    pw = _secret("NEO4J_PASSWORD", os.environ.get("NEO4J_PASSWORD", "")) or ""
     db = _secret("NEO4J_DATABASE", os.environ.get("NEO4J_DATABASE", None))
-    try:
-        eng = PhoneRecommender(uri, user, pw, database=db)
-        eng.stats()
-        return eng, "neo4j", f"Neo4j ({uri}{' · db ' + db if db else ''})"
-    except Exception as e:
-        return from_files(), "local", f"โหมดสำรองในหน่วยความจำ (ต่อ Neo4j ไม่ได้: {type(e).__name__})"
+
+    if uri and pw:                      # ตั้งค่าไว้ → ลองต่อจริงก่อน
+        from recommender import PhoneRecommender
+        try:
+            with st.spinner("กำลังเชื่อมต่อฐานข้อมูลกราฟ Neo4j…"):
+                eng = PhoneRecommender(uri, user, pw, database=db)
+                eng.stats()
+            return eng, "neo4j", f"Neo4j ({uri}{' · db ' + db if db else ''})"
+        except Exception as e:
+            st.session_state["neo4j_error"] = type(e).__name__
+    elif uri:
+        st.session_state["neo4j_error"] = "ไม่มีรหัสผ่าน NEO4J_PASSWORD"
+
+    from graph_fallback import from_files
+    if "engine" not in st.session_state:          # ของแต่ละคน แยกกัน
+        st.session_state["engine"] = from_files()
+    err = st.session_state.get("neo4j_error")
+    note = f"โหมดสาธิตออนไลน์ · ข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j (ในหน่วยความจำของเซสชันคุณ" \
+           f"{' · ต่อ Neo4j ไม่ได้: ' + err if err else ''})"
+    return st.session_state["engine"], "local", note
 
 
 @st.cache_resource(show_spinner=False)
@@ -96,7 +111,7 @@ with st.sidebar:
     if backend == "neo4j":
         st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
     else:
-        st.warning(backend_label, icon="⚠️")
+        st.info(backend_label, icon="🧪")
     st.metric("ผู้ใช้ในระบบ", stat["users"])
     c1, c2, c3 = st.columns(3)
     c1.metric("รุ่นมือถือ", stat["phones"])
@@ -300,10 +315,17 @@ with tabs[4]:
 ยังได้คำแนะนำจากยี่ห้อและระดับราคาที่ตัวเองสนใจ (เช่น งบระดับกลางก็ไม่ต้องแนะนำเรือธง)
     """)
     st.markdown("##### สถานะการเชื่อมต่อ")
-    st.write(f"- backend ที่ใช้อยู่: **({'Neo4j' if backend == 'neo4j' else 'หน่วยความจำสำรอง'})** "
+    st.write(f"- backend ที่ใช้อยู่: **({'Neo4j' if backend == 'neo4j' else 'โหมดสาธิตในหน่วยความจำ'})** "
              f"· {backend_label}")
     st.write("- ตรวจว่าสอง backend ให้ผลตรงกัน: `py -3.13 tools/consistency_test.py <uri> "
              "neo4j <password>`")
+    st.markdown("##### หมายเหตุของเดโมออนไลน์")
+    st.write("- เดโมนี้ **ไม่ต้องมีเซิร์ฟเวอร์ Neo4j** — ใช้ข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j "
+             "(12 ผู้ใช้ / 23 รุ่น / 38 ความสนใจ) และผลตรงกันผ่านการทดสอบแล้ว")
+    st.write("- การกด “เพิ่ม/ลบความสนใจ” ในหน้าเดโมสด **แยกต่อผู้เข้าชม 1 คน** "
+             "ข้อมูลของคนอื่นไม่เปลี่ยน")
+    st.write("- ถ้าต้องการต่อ Neo4j จริง ให้ตั้งค่า `NEO4J_URI` / `NEO4J_PASSWORD` "
+             "(และ `NEO4J_DATABASE`) ใน secrets ของแอป แอปจะสลับไปใช้ฐานข้อมูลกราฟอัตโนมัติ")
 
 st.divider()
 st.caption("ระบบแนะนำมือถือ · จัดทำโดย รหัส 007 · ภาพสินค้าจาก Wikimedia Commons · "

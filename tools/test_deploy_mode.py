@@ -18,7 +18,7 @@ with sync_playwright() as p:
     text = pg.inner_text("body")
     imgs = pg.eval_on_selector_all("img", "els => els.filter(e => e.naturalWidth > 60).length")
     checks = {
-        "แสดงข้อความโหมดสำรอง": "โหมดสำรอง" in text,
+        "แสดงข้อความโหมดสาธิต": ("โหมดสาธิต" in text or "โหมดสำรอง" in text),
         "มีชื่อผู้ใช้ในระบบ (สมชาย)": "สมชาย" in text,
         "มีการ์ดแนะนำ (คะแนน)": "คะแนน" in text,
         "ภาพที่โหลดได้จริง > 10 ภาพ": imgs > 10,
