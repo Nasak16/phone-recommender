@@ -88,7 +88,12 @@ NEO4J_PASSWORD = "รหัสผ่านของ instance"
 NEO4J_DATABASE = "neo4j"
 ```
 
-### 4) โน๊ตบุ๊กสำหรับส่ง (Colab)
+### 4) Deploy ขึ้น Streamlit Community Cloud (ฟรี)
+ดูขั้นตอนใน [`docs/deploy-streamlit-cloud.md`](docs/deploy-streamlit-cloud.md) — repo นี้ deploy ได้ทันที
+โดยไม่ต้องแก้โค้ด: ถ้ามี secrets ของ Neo4j จะใช้ฐานข้อมูลกราฟ ถ้าไม่มีจะใช้ **โหมดสาธิตในหน่วยความจำ**
+(ข้อมูลชุดเดียวกัน, แยกต่อผู้เข้าชม 1 คน) พร้อมภาพสินค้าครบ
+
+### 5) โน๊ตบุ๊กสำหรับส่ง (Colab)
 `notebooks/PhoneRecommender_Neo4j_007.ipynb` — รันได้บน Colab ทุกเซลล์ มีผลลัพธ์จริงฝังอยู่ในไฟล์
 
 ```bash
@@ -124,7 +129,9 @@ phone-recommender/
 ├── notebooks/                 # โน๊ตบุ๊กสำหรับส่ง (รันบน Colab)
 ├── slides/                    # PowerPoint + PDF สำหรับนำเสนอ
 ├── tools/                     # สคริปต์สร้างข้อมูล/โน๊ตบุ๊ก/สไลด์/ตรวจสอบ
-└── docs/local-neo4j.md        # วิธีตั้ง Neo4j ในเครื่อง
+├── docs/
+│   ├── local-neo4j.md         # วิธีตั้ง Neo4j ในเครื่อง
+│   └── deploy-streamlit-cloud.md  # วิธี deploy ขึ้นคลาวด์ฟรี
 ```
 
 ## 🖼️ เครดิตภาพ
