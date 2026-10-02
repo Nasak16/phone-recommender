@@ -10,6 +10,8 @@
 
 `Neo4j` · `Cypher` · `Streamlit` · `pandas` · `Google Colab`
 
+ธีม: **dark neon** (ฟอนต์ไทย Prompt + Orbitron, พื้นหลังตารางจาง, การ์ดขอบฟ้าเรืองแสง, ปุ่มไล่สี)
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/Nasak16/8667b219bbff8253335ec78f78b5c79e/PhoneRecommender_Neo4j_007.ipynb)
 
 </div>
@@ -25,7 +27,7 @@
 | 🔎 **Phone Search** · ค้นหารุ่นมือถือ | ค้นหา/กรองตามยี่ห้อและระดับราคา + เรียงตามคนสนใจ/ดาวเฉลี่ย แสดงการ์ดพร้อมภาพ |
 | 📝 **Like & Rate** · ถูกใจ / ให้คะแนน | เพิ่ม/ลบความสนใจ และ **ให้คะแนนดาว 1.0–5.0** (เขียนลงฐานข้อมูลจริง) แล้วเห็นคำแนะนำ **ก่อน–หลัง** เปลี่ยนทันทีโดยไม่ต้องเทรนใหม่ |
 | 🕸️ **Graph Explorer** · สำรวจโครงสร้างกราฟ | วาดกราฟผู้ใช้ ↔ รุ่นมือถือ + เส้นทางการตัดสินใจของอันดับ 1 + **ตารางความสัมพันธ์ (edge) ทั้งหมด** + **ช่องรันคำสั่ง Cypher เอง** (อ่านข้อมูลเท่านั้น) |
-| 📚 **Index & Links** · งานทั้งหมด (Index) | หัวข้อรวมงานทุกชิ้นบน GitHub (ดึงจากหน้า index อัตโนมัติด้วย `tools/build_homework_index.py`) + ลิงก์หน้า index หลัก/สไลด์/โน๊ตบุ๊ก |
+| 📚 **Index & Links** · งานทั้งหมด (Index) | หน้า hub แบบการ์ด **มีปุ่ม gradient** ต่อการ์ด: งานชิ้นนี้ · โน๊ตบุ๊ก Colab · สไลด์ · หน้า index รวมงาน (ดึงข้อมูลจากหน้า index อัตโนมัติด้วย `tools/build_homework_index.py`) + งานในวิชานี้/หมวดอื่น |
 | ⚙️ **Admin & Setup** · ผู้ดูแลระบบ | โครงสร้างกราฟ (schema) · ปุ่ม **รีโหลดข้อมูลตัวอย่างแบบ idempotent** (MERGE กดซ้ำได้) · ล้างโหนดที่ไม่มีเส้นเชื่อม · ดาวน์โหลดข้อมูล CSV · สรุปวิธีทำงานสำหรับผู้ตรวจ |
 
 **วิธีให้คะแนน 5 วิธี** (เลือกได้ในหน้า Recommendations)
@@ -127,7 +129,8 @@ py -3.13 tools/finalize_notebook.py         # รันทุกเซลล์ 
 
 ```
 phone-recommender/
-├── app.py                     # เว็บแอป Streamlit (6 หน้า: Dashboard → Admin & Setup)
+├── app.py                     # เว็บแอป Streamlit (6 หน้า + หน้ารวมงาน: Dashboard → Admin & Setup)
+├── theme.py                   # ธีม dark neon + ฟอนต์ไทย (Prompt/Orbitron) + การ์ดลิงก์แบบ hub
 ├── recommender.py             # แกนระบบ: Cypher + ให้คะแนน 5 วิธี + run_readonly()
 ├── graph_fallback.py          # backend สำรองในหน่วยความจำ (ตรรกะเดียวกับ Cypher)
 ├── graph_view.py              # วาดกราฟผู้ใช้ ↔ รุ่นมือถือ (matplotlib/networkx)

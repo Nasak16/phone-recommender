@@ -15,11 +15,13 @@ import pandas as pd
 import streamlit as st
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+import theme  # noqa: E402  (ธีม dark neon + ฟอนต์ไทย)
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "data"))
 
 st.set_page_config(page_title="ระบบแนะนำมือถือ | Neo4j + Streamlit", page_icon="📱",
                    layout="wide")
+theme.inject()
 
 PAGES = ["Dashboard", "Recommendations", "Phone Search", "Like & Rate",
          "Graph Explorer", "Index & Links", "Admin & Setup"]
@@ -157,25 +159,20 @@ with st.sidebar:
         st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
     else:
         st.info(backend_label, icon="🧪")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("ผู้ใช้", stat["users"])
-    m2.metric("รุ่นมือถือ", stat["phones"])
-    m3.metric("ความสนใจ", stat["likes"])
-    m4, m5, m6 = st.columns(3)
-    m4.metric("คะแนนดาว", stat.get("ratings", 0))
-    m5.metric("ยี่ห้อ", stat["brands"])
-    m6.metric("ระดับราคา", stat["tiers"])
+    r1c1, r1c2 = st.columns(2)
+    r1c1.metric("ผู้ใช้", stat["users"])
+    r1c2.metric("รุ่นมือถือ", stat["phones"])
+    r2c1, r2c2 = st.columns(2)
+    r2c1.metric("ความสนใจ (LIKES)", stat["likes"])
+    r2c2.metric("คะแนนดาว (RATED)", stat.get("ratings", 0))
+    r3c1, r3c2 = st.columns(2)
+    r3c1.metric("ยี่ห้อ", stat["brands"])
+    r3c2.metric("ระดับราคา", stat["tiers"])
     st.divider()
     st.caption("ข้อมูลของเราเอง 12 คน × 23 รุ่น พร้อมภาพสินค้าจริง "
                "(ไม่ใช้ dataset สำเร็จรูป)")
 
-st.markdown(
-    """<div style="background:linear-gradient(90deg,#172136,#0E1626);border:1px solid #2B3A5C;
-    border-radius:14px;padding:18px 22px;margin-bottom:6px">
-    <h1 style="margin:0;font-size:30px">📱 Phone Recommender System</h1>
-    <p style="margin:6px 0 0 0;color:#9FB0CB">ระบบแนะนำมือถือบนฐานข้อมูลกราฟ Neo4j —
-    อธิบายเหตุผลของทุกคำแนะนำได้ และแสดงภาพสินค้าจริงในการ์ดทุกใบ</p></div>""",
-    unsafe_allow_html=True)
+theme.hero()
 
 # ------------------------------------------------------------------ 1. Dashboard
 if page == "Dashboard":
@@ -473,16 +470,42 @@ elif page == "Index & Links":
     c2.metric("หมวดวิชา", len(cats))
     c3.metric("งานในวิชานี้ (ฐานข้อมูล)", len(cats.get("ฐานข้อมูล", [])))
 
-    st.markdown("#### 🗂️ งานในวิชานี้ (ฐานข้อมูล)")
-    for it in cats.get("ฐานข้อมูล", []):
-        with st.container(border=True):
-            st.markdown(f"**{it['title']}**")
-            st.caption(it["desc"])
-            links = " · ".join([f"[{lbl}]({href})" for lbl, href in it["extra"]])
-            st.markdown(f"[📂 โค้ดบน GitHub]({it['url']})" + (f" · {links}" if links else "")
-                        + f" · _อัปเดต {it['date']}_")
+    st.markdown("#### ⭐ งานล่าสุด: ระบบแนะนำมือถือ (ชิ้นนี้)")
+    hub = [("📱", "ระบบแนะนำมือถือ (ชิ้นนี้)", "โค้ดทั้งหมดบน GitHub: Neo4j + Streamlit 7 หน้า",
+            "https://github.com/Nasak16/phone-recommender", "เปิดโค้ด →",
+            "phone-recommender · อัปเดต " + (HW.HOMEWORK[0]["date"] if HW.HOMEWORK else "")),
+           ("📓", "โน๊ตบุ๊ก Colab", "อธิบายวิธีทำทีละขั้น + ผลลัพธ์จริงทุกเซลล์ (26 เซลล์)",
+            "https://colab.research.google.com/gist/Nasak16/8667b219bbff8253335ec78f78b5c79e/PhoneRecommender_Neo4j_007.ipynb",
+            "เปิดโน๊ตบุ๊ก →", "Colab · getpass"),
+           ("📊", "สไลด์นำเสนอ 16 หน้า", "PowerPoint + PDF + PNG (อยู่ใน GitHub ตามโจทย์ข้อ 2)",
+            "https://github.com/Nasak16/phone-recommender/tree/main/slides",
+            "เปิดสไลด์ →", "slides/*.pptx · *.pdf"),
+           ("🌐", "หน้า index รวมทุกงาน", "รวมงานทุกชิ้นที่ส่งไว้ (14 งาน) พร้อมลิงก์",
+            HW.INDEX_URL, "เปิดหน้า index →", "nasak16.github.io/homework")]
+    for i in range(0, len(hub), 4):
+        cols = st.columns(4)
+        for col, (ic, t, d, u, lb, tag) in zip(cols, hub[i:i + 4]):
+            with col:
+                st.markdown(theme.card_html(ic, t, d, u, lb, tag, height=210),
+                            unsafe_allow_html=True)
 
-    st.divider()
+    st.markdown("#### 🗂️ งานในวิชานี้ (ฐานข้อมูล)")
+    db = cats.get("ฐานข้อมูล", [])
+    for i in range(0, len(db), 2):
+        cols = st.columns(2)
+        for col, it in zip(cols, db[i:i + 3]):
+            with col:
+                url = it["extra"][0][1] if it["extra"] else it["url"]
+                label = ("เปิด" + it["extra"][0][0].replace("📓 ", " ") + " →") if it["extra"] \
+                    else "เปิดโค้ด →"
+                st.markdown(theme.card_html(
+                    "📘" if "book" in it["repo"] else ("🧪" if it["repo"] == "GrapDB1" else
+                                                       ("📈" if it["repo"] == "grafanaDB" else "📱")),
+                    it["title"], it["desc"], url, label,
+                    f"{it['repo']} · อัปเดต {it['date']}" + (f" · +{len(it['extra'])} ลิงก์" if it["extra"] else ""),
+                    height=250), unsafe_allow_html=True)
+
+    st.markdown("#### 📚 งานหมวดอื่น")
     for cat, items in sorted(cats.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         if cat == "ฐานข้อมูล":
             continue
@@ -491,13 +514,6 @@ elif page == "Index & Links":
                 st.markdown(f"- [{it['title']}]({it['url']}) · `{it['repo']}` · {it['date']}")
                 if it["desc"]:
                     st.caption(it["desc"])
-
-    st.divider()
-    st.markdown(f"""**ลิงก์ที่เกี่ยวข้อง**
-- หน้า index หลัก: [{HW.INDEX_URL}]({HW.INDEX_URL})
-- โค้ดระบบนี้: [github.com/Nasak16/phone-recommender](https://github.com/Nasak16/phone-recommender)
-- สไลด์นำเสนอ (.pptx/.pdf): [slides/](https://github.com/Nasak16/phone-recommender/tree/main/slides)
-- โน๊ตบุ๊ก Colab: [PhoneRecommender_Neo4j_007.ipynb](https://colab.research.google.com/gist/Nasak16/8667b219bbff8253335ec78f78b5c79e/PhoneRecommender_Neo4j_007.ipynb)""")
 
 # ------------------------------------------------------------------ 7. Admin & Setup
 else:
