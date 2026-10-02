@@ -28,7 +28,7 @@ class LocalPhoneRecommender:
         pass
 
     def reset(self):
-        """กลับไปใช้ข้อมูลตัวอย่างชุดเดิม (ล้างความสนใจ/ดาวที่แก้ระหว่างใช้งานในโหมดสาธิต)"""
+        """กลับไปใช้ข้อมูลตัวอย่างชุดเดิม (ให้ tools/consistency_test.py เทียบกับ Cypher ได้เสมอ)"""
         import seed_data
         users, phones, likes = seed_data.graph_data()
         ratings = seed_data.ratings_data(phones)

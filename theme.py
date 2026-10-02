@@ -179,7 +179,21 @@ hr { border-color: #1b3a63; }
 HERO = """
 <div class="hero">
     <h1>📱 ระบบแนะนำมือถือ</h1>
-    <p>Neo4j (Graph Database) + Streamlit · งานรหัส 007 · ข้อมูลของเราเอง 12 คน × 23 รุ่น พร้อมภาพสินค้าจริง</p>
+    <p>Neo4j (Graph Database) + Streamlit · งานรหัส 007 · ข้อมูลของเราเอง พร้อมภาพสินค้าจริง</p>
+</div>
+"""
+
+
+def hero_text(stat=None):
+    """หัวเรื่องที่มีตัวเลขจริงจากฐานข้อมูล (ไม่ใส่ตัวเลขตอนยังไม่รู้ค่า)"""
+    if not stat:
+        return HERO
+    return f"""
+<div class="hero">
+    <h1>📱 ระบบแนะนำมือถือ</h1>
+    <p>Neo4j (Graph Database) + Streamlit · งานรหัส 007 · ข้อมูลของเราเอง
+    {stat.get('users', 0)} คน × {stat.get('phones', 0)} รุ่น × {stat.get('likes', 0)} ความสนใจ
+    + {stat.get('ratings', 0)} คะแนนดาว · พร้อมภาพสินค้าจริง</p>
 </div>
 """
 

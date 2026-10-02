@@ -6,7 +6,7 @@
 เมนู 6 หน้า (โครงเดียวกับงานตัวอย่างในวิชา — ทำเป็นโดเมนมือถือและเพิ่มของที่มากกว่า)
   Dashboard / Recommendations / Phone Search / Like & Rate / Graph Explorer / Admin & Setup
 
-รัน: streamlit run app.py   (ไม่ตั้งค่า Neo4j ก็รันได้ → โหมดสาธิตในหน่วยความจำ)
+รัน: streamlit run app.py   (ต้องตั้งค่า Neo4j ใน .streamlit/secrets.toml — ถ้ายังไม่ตั้งจะขึ้นหน้าวิธีตั้งค่า)
 """
 import os
 import sys
@@ -46,38 +46,72 @@ def _secret(key, default=None):
 
 
 def get_engine():
-    """เลือก backend อัตโนมัติ
+    """เชื่อมต่อ **Neo4j จริงเท่านั้น** (ระบบนี้ไม่ใช้ข้อมูลจำลองในแอปแล้ว)
 
-    1) ถ้ามีการตั้งค่า Neo4j (secrets/env) → ต่อ Neo4j จริง
-    2) ถ้าไม่มี/ต่อไม่ได้ → โหมดสาธิตในหน่วยความจำ **แยกต่อผู้เข้าชม 1 คน**
+    คืน (engine, "neo4j", ป้ายสถานะ) เมื่อต่อได้
+    คืน (None, "none" | "error", รายละเอียด) เมื่อยังใช้ไม่ได้ → แอปจะขึ้นหน้าตั้งค่าแทน
     """
     uri = _secret("NEO4J_URI", os.environ.get("NEO4J_URI", "")) or ""
     user = _secret("NEO4J_USER", os.environ.get("NEO4J_USER", "neo4j"))
     pw = _secret("NEO4J_PASSWORD", os.environ.get("NEO4J_PASSWORD", "")) or ""
     db = _secret("NEO4J_DATABASE", os.environ.get("NEO4J_DATABASE", None))
 
-    if uri and pw:
-        from recommender import PhoneRecommender
-        try:
-            with st.spinner("กำลังเชื่อมต่อฐานข้อมูลกราฟ Neo4j…"):
-                eng = PhoneRecommender(uri, user, pw, database=db)
-                eng.stats()
-            label = f"Neo4j ({uri}{' · db ' + eng.database if eng.database else ' · db เริ่มต้น'})"
-            if getattr(eng, "database_note", None):
-                label += " · " + eng.database_note
-            return eng, "neo4j", label
-        except Exception as e:
-            st.session_state["neo4j_error"] = type(e).__name__
-    elif uri:
-        st.session_state["neo4j_error"] = "ไม่มีรหัสผ่าน NEO4J_PASSWORD"
+    if not uri:
+        return None, "none", "ยังไม่ได้ตั้งค่า NEO4J_URI"
+    if not pw:
+        return None, "none", "ตั้ง NEO4J_URI แล้ว แต่ยังขาด NEO4J_PASSWORD"
 
-    from graph_fallback import from_files
-    if "engine" not in st.session_state:
-        st.session_state["engine"] = from_files()
-    err = st.session_state.get("neo4j_error")
-    note = ("โหมดสาธิตออนไลน์ · ข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j "
-            "(ในหน่วยความจำของเซสชันคุณ" + (" · ต่อ Neo4j ไม่ได้: " + err if err else "") + ")")
-    return st.session_state["engine"], "local", note
+    from recommender import PhoneRecommender
+    try:
+        with st.spinner("กำลังเชื่อมต่อฐานข้อมูลกราฟ Neo4j…"):
+            eng = PhoneRecommender(uri, user, pw, database=db)
+            eng.stats()
+    except Exception as e:                       # noqa: BLE001 — ต้องบอกผู้ใช้ให้เห็นสาเหตุจริง
+        return None, "error", f"{type(e).__name__}: {e}"
+
+    label = f"Neo4j ({uri}{' · db ' + eng.database if eng.database else ' · db เริ่มต้น'})"
+    if getattr(eng, "database_note", None):
+        label += " · " + eng.database_note
+    return eng, "neo4j", label
+
+
+def setup_screen(kind, detail):
+    """หน้าที่แสดงเมื่อยังต่อ Neo4j ไม่ได้ — บอกวิธีตั้งค่าให้ครบ ไม่มีข้อมูลปลอมในระบบ"""
+    theme.hero()
+    st.error("ยังเชื่อมต่อฐานข้อมูลกราฟ **Neo4j** ไม่ได้ — ระบบนี้ใช้ข้อมูลจริงจาก Neo4j "
+             "เท่านั้น (ไม่มีข้อมูลจำลอง)", icon="🔌")
+    if kind == "error":
+        st.write(f"**สาเหตุจากไดรเวอร์:** `{detail}`")
+    else:
+        st.write(f"**สาเหตุ:** {detail}")
+
+    st.markdown("#### ตั้งค่าในเครื่อง (Neo4j Desktop / Community)")
+    st.code("""# .streamlit/secrets.toml  (ไฟล์นี้ไม่ถูก track ขึ้น GitHub)
+NEO4J_URI = "bolt://127.0.0.1:7687"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "รหัสของเซิร์ฟเวอร์ในเครื่อง"
+NEO4J_DATABASE = "phones"
+""", language="toml")
+    st.caption("โหลดข้อมูลเข้า Neo4j: `py -3.13 tools/load_neo4j.py` หรือกดปุ่มในหน้า Admin & Setup")
+
+    st.markdown("#### ตั้งค่าบน Streamlit Cloud (ต้องใช้ Neo4j Aura)")
+    st.code("""# หน้าแอปใน share.streamlit.io → ⋮ → Settings → Secrets
+NEO4J_URI = "neo4j+s://xxxxxxxx.databases.neo4j.io"
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "รหัสของ instance"
+NEO4J_DATABASE = "neo4j"
+""", language="toml")
+    st.caption("ขั้นตอนละเอียดอยู่ใน docs/deploy-streamlit-cloud.md "
+               "(สมัคร Aura Free ฟรี ไม่ใช้บัตรเครดิต) — เซิร์ฟเวอร์คลาวด์เข้าถึง Neo4j ในเครื่องไม่ได้")
+
+    c1, c2, c3 = st.columns(3)
+    if c1.button("🔁 ลองเชื่อมต่อใหม่", type="primary", use_container_width=True):
+        st.cache_resource.clear()
+        st.rerun()
+    c2.link_button("📄 คู่มือ deploy", "https://github.com/Nasak16/phone-recommender/blob/main/"
+                   "docs/deploy-streamlit-cloud.md", use_container_width=True)
+    c3.link_button("🗂️ หน้ารวมงาน", "https://nasak16.github.io/homework/", use_container_width=True)
+    st.stop()
 
 
 @st.cache_data(show_spinner=False)
@@ -140,6 +174,8 @@ def card(row, img_w=170, ratings=None, lines=None):
 
 
 engine, backend, backend_label = get_engine()
+if engine is None:
+    setup_screen(backend, backend_label)
 stat = engine.stats()
 RATINGS = engine.rating_stats()
 
@@ -168,10 +204,7 @@ with st.sidebar:
         ผู้ดูแลระบบ</span></div></div>""", unsafe_allow_html=True)
     page = st.radio("เมนู", PAGES, format_func=lambda p: f"{p} · {PAGE_TH[p]}")
     st.divider()
-    if backend == "neo4j":
-        st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
-    else:
-        st.info(backend_label, icon="🧪")
+    st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
     r1c1, r1c2 = st.columns(2)
     r1c1.metric("ผู้ใช้", stat["users"])
     r1c2.metric("รุ่นมือถือ", stat["phones"])
@@ -182,10 +215,10 @@ with st.sidebar:
     r3c1.metric("ยี่ห้อ", stat["brands"])
     r3c2.metric("ระดับราคา", stat["tiers"])
     st.divider()
-    st.caption("ข้อมูลของเราเอง 12 คน × 23 รุ่น พร้อมภาพสินค้าจริง "
+    st.caption(f"ข้อมูลของเราเอง {stat['users']} คน × {stat['phones']} รุ่น พร้อมภาพสินค้าจริง "
                "(ไม่ใช้ dataset สำเร็จรูป)")
 
-theme.hero()
+theme.hero(theme.hero_text(stat))
 
 # ------------------------------------------------------------------ 1. Dashboard
 if page == "Dashboard":
@@ -472,7 +505,7 @@ elif page == "Graph Explorer":
             except Exception as e:
                 st.error(f"รันไม่สำเร็จ: {e}")
         else:
-            st.warning("โหมดสาธิต (ไม่มีเซิร์ฟเวอร์ Neo4j) ไม่สามารถรัน Cypher อิสระได้ — "
+            st.warning("รัน Cypher ไม่ได้ในขณะนี้ — "
                        "คำสั่งนี้จะทำงานเมื่อตั้งค่า Neo4j ใน secrets "
                        "(ดู docs/deploy-streamlit-cloud.md)")
 
@@ -545,8 +578,9 @@ else:
     st.subheader("⚙️ ผู้ดูแลระบบ: ตรวจสอบและตั้งค่าข้อมูล (Admin & Setup)")
     if st.session_state.get("admin_flash"):
         st.success(st.session_state.pop("admin_flash"))
-    st.write(f"**backend ที่ใช้อยู่:** {'Neo4j (ฐานข้อมูลกราฟจริง)' if backend == 'neo4j' else 'โหมดสาธิตในหน่วยความจำ'}"
-             f" · {backend_label}")
+    st.write(f"**แหล่งข้อมูล:** Neo4j (ฐานข้อมูลกราฟจริง) · {backend_label}")
+    st.caption("ข้อมูลทุกหน้าอ่าน/เขียนจาก Neo4j โดยตรง — แก้ที่หน้า Like & Rate แล้วกลับมาดูได้ทันที"
+               " (ไม่มีข้อมูลจำลองในแอป: ถ้าฐานข้อมูลว่างระบบจะบอกให้กดปุ่มโหลดข้อมูลด้านล่าง)")
 
     st.markdown("#### โครงสร้างกราฟ (schema)")
     st.code("""(User {user, age, group})
@@ -576,8 +610,8 @@ else:
         except Exception as e:
             st.error(f"โหลดไม่สำเร็จ: {type(e).__name__}: {e}")
     if c2.button("♻️ รีเซ็ตข้อมูลกลับค่าเริ่มต้น", use_container_width=True,
-                 help="ล้างข้อมูลในกราฟทั้งหมด (โหมดสาธิต: ล้างเฉพาะข้อมูลที่คุณแก้ในเซสชันนี้) "
-                      "แล้วโหลดข้อมูลตัวอย่างกลับเข้าไปใหม่ = สภาพเหมือนเปิดแอปครั้งแรก"):
+                 help="ล้างข้อมูลในกราฟทั้งหมดแล้วโหลดข้อมูลชุดตั้งต้นกลับเข้าไปใหม่ "
+                      "= สภาพเหมือนเปิดฐานข้อมูลครั้งแรก"):
         u, p, l = seed_data.graph_data()
         r = seed_data.ratings_data(p)
         try:
@@ -593,17 +627,13 @@ else:
             st.rerun()
         except Exception as e:
             st.error(f"รีเซ็ตไม่สำเร็จ: {type(e).__name__}: {e}")
-    if backend == "neo4j":
-        if st.button("🧹 ล้างโหนดที่ไม่มีเส้นเชื่อม", use_container_width=False):
-            try:
-                engine._run("MATCH (u:User) WHERE NOT (u)--() DELETE u")
-                engine._run("MATCH (p:Phone) WHERE NOT (p)--() DETACH DELETE p")
-                st.success("ลบโหนดที่ไม่มีเส้นเชื่อมแล้ว")
-            except Exception as e:
-                st.error(f"ล้างไม่สำเร็จ: {type(e).__name__}: {e}")
-    else:
-        st.caption("โหมดสาธิต: ไม่มีคำสั่ง Cypher ให้ใช้ — ปุ่ม 「♻️ รีเซ็ตข้อมูลกลับค่าเริ่มต้น」 "
-                   "จะคืนข้อมูลตัวอย่างให้เหมือนเปิดแอปครั้งแรก")
+    if st.button("🧹 ล้างโหนดที่ไม่มีเส้นเชื่อม", use_container_width=False):
+        try:
+            engine._run("MATCH (u:User) WHERE NOT (u)--() DELETE u")
+            engine._run("MATCH (p:Phone) WHERE NOT (p)--() DETACH DELETE p")
+            st.success("ลบโหนดที่ไม่มีเส้นเชื่อมแล้ว")
+        except Exception as e:
+            st.error(f"ล้างไม่สำเร็จ: {type(e).__name__}: {e}")
     c3.download_button("⬇️ ดาวน์โหลดข้อมูลเป็น CSV",
                        data=pd.DataFrame([{"phone_id": p["phone_id"], "model": p["model"],
                                            "brand": p["brand"], "tier": p["tier"],
