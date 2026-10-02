@@ -255,13 +255,14 @@ MD[6] = """## ✅ ตรวจสอบว่าข้อมูลเข้า�
 ถ้าตัวเลขตรงกับตารางข้างบน แปลว่าข้อมูลชุดเดียวกันถูกโหลดเข้า Neo4j แล้วจริง"""
 
 PY[7] = """Q_STATS = '''
-MATCH (u:User) WITH count(u) AS users
-MATCH (p:Phone) WITH users, count(p) AS phones
-MATCH ()-[r:LIKES]->() WITH users, phones, count(r) AS likes
-MATCH ()-[rt:RATED]->() WITH users, phones, likes, count(rt) AS ratings
-MATCH (b:Brand) WITH users, phones, likes, ratings, count(b) AS brands
-MATCH (t:Tier) RETURN users, phones, likes, ratings, brands, count(t) AS tiers
+RETURN COUNT { MATCH (u:User) } AS users,
+       COUNT { MATCH (p:Phone) } AS phones,
+       COUNT { MATCH ()-[r:LIKES]->() } AS likes,
+       COUNT { MATCH ()-[rt:RATED]->() } AS ratings,
+       COUNT { MATCH (b:Brand) } AS brands,
+       COUNT { MATCH (t:Tier) } AS tiers
 '''
+# หมายเหตุ: ใช้ COUNT { } เพราะแบบ MATCH ... WITH count() จะได้ 0 แถวถ้าฐานข้อมูลว่าง
 
 stats = run(driver, Q_STATS)[0]
 print("สรุปฐานข้อมูล:", stats)
@@ -595,7 +596,7 @@ PY[23] = """# เก็บกวาดข้อมูลทดลอง แล�
 run(driver, "MATCH (p:Phone {phone_id: $phone_id}) DETACH DELETE p", phone_id=NEW_PHONE)
 run(driver, "MATCH (u:User {user: $user}) DETACH DELETE u", user=NEW_USER)
 
-final = run(driver, Q_STATS)[0]
+final = (run(driver, Q_STATS) or [{}])[0]
 print("ลบผู้ใช้และรุ่นทดลองแล้ว — สถานะสุดท้าย:", final)
 assert (final["users"], final["phones"], final["likes"], final["ratings"]) == \
        ({NU}, {NP}, {NL}, {NR}), "ข้อมูลไม่กลับสู่สภาพเดิม"

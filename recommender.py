@@ -10,13 +10,16 @@ from collections import OrderedDict
 
 from neo4j import GraphDatabase
 
+# ใช้ COUNT { } (subquery expression) แทน MATCH ... WITH count() แบบเดิม
+# เพราะแบบเดิมพอกลุ่มไหนว่าง (เช่นเพิ่งสร้างฐานข้อมูลเปล่าแบบ Aura) จะได้ 0 แถว → แอปพัง
+# และปลอดภัยกว่าการ OPTIONAL MATCH หลายชั้นที่ทำให้จำนวนแถวคูณกัน
 Q_STATS = """
-MATCH (u:User) WITH count(u) AS users
-MATCH (p:Phone) WITH users, count(p) AS phones
-MATCH ()-[r:LIKES]->() WITH users, phones, count(r) AS likes
-MATCH ()-[rt:RATED]->() WITH users, phones, likes, count(rt) AS ratings
-MATCH (b:Brand) WITH users, phones, likes, ratings, count(b) AS brands
-MATCH (t:Tier) RETURN users, phones, likes, ratings, brands, count(t) AS tiers
+RETURN COUNT { MATCH (u:User) } AS users,
+       COUNT { MATCH (p:Phone) } AS phones,
+       COUNT { MATCH ()-[r:LIKES]->() } AS likes,
+       COUNT { MATCH ()-[rt:RATED]->() } AS ratings,
+       COUNT { MATCH (b:Brand) } AS brands,
+       COUNT { MATCH (t:Tier) } AS tiers
 """
 
 Q_RESET = "MATCH (n) DETACH DELETE n"
@@ -178,11 +181,47 @@ class PhoneRecommender:
     """ระบบแนะนำมือถือ: ให้คะแนน 3 วิธี + วิธีผสม และอธิบายย้อนหลังได้"""
 
     def __init__(self, uri, user="neo4j", password=None, database=None):
-        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        # ตั้ง timeout ไว้รอได้นาน (Neo4j Aura Free หลับเมื่อไม่ใช้งาน 3 วัน ตื่นครั้งแรกช้า)
+        self.driver = GraphDatabase.driver(uri, auth=(user, password),
+                                           connection_timeout=30,
+                                           max_connection_lifetime=300,
+                                           keep_alive=True)
         self.database = database
+        self.database_note = None
+        self.connect()
 
     def close(self):
         self.driver.close()
+
+    def connect(self, max_attempts=3, pause=3.0):
+        """ตรวจว่าต่อได้จริง + ปรับชื่อฐานข้อมูลให้อัตโนมัติ
+
+        Neo4j Aura Free มีฐานข้อมูลเดียวชื่อ `neo4j` — ถ้า secrets ตั้งชื่ออื่น (เช่น `phones`
+        ที่ใช้กับเซิร์ฟเวอร์ในเครื่อง) จะได้ ClientError DatabaseNotFound จึงลองใหม่โดยไม่ระบุ
+        ชื่อฐานข้อมูล (ใช้ค่าตั้งต้นของเซิร์ฟเวอร์) แล้วเก็บข้อความไว้ให้แอปอธิบายผู้ใช้
+        """
+        import time as _time
+
+        last = None
+        for attempt in range(max_attempts):
+            try:
+                self._run("RETURN 1 AS ok")
+                return True
+            except Exception as e:  # noqa: BLE001 — ต้องรายงานทุกกรณีให้ผู้ใช้เห็น
+                last = e
+                text = "%s %s" % (type(e).__name__, e)
+                if "DatabaseNotFound" in text or "not found" in text.lower():
+                    tried, self.database = self.database, None
+                    try:
+                        self._run("RETURN 1 AS ok")
+                        self.database_note = (f"ไม่มีฐานข้อมูล '{tried}' บนเซิร์ฟเวอร์นี้ "
+                                              f"→ ใช้ฐานข้อมูลเริ่มต้นแทน")
+                        return True
+                    except Exception as e2:  # noqa: BLE001
+                        self.database, last = tried, e2
+                if attempt < max_attempts - 1:
+                    _time.sleep(pause)
+        raise last
 
     def _run(self, query, **params):
         with self.driver.session(database=self.database) as s:
@@ -208,9 +247,11 @@ class PhoneRecommender:
                       rows=[{"user": u, "phone_id": p, "stars": s} for u, p, s in ratings])
 
     def stats(self):
-        row = self._run(Q_STATS)[0]
-        return {"users": row["users"], "phones": row["phones"], "likes": row["likes"],
-                "ratings": row["ratings"], "brands": row["brands"], "tiers": row["tiers"]}
+        """สรุปจำนวนโหนด/เส้น — ฐานข้อมูลว่างก็ต้องคืน 0 ไม่ใช่พัง (สำคัญตอนต่อ Aura ใหม่)"""
+        rows = self._run(Q_STATS)
+        row = rows[0] if rows else {}
+        return {k: row.get(k, 0) for k in ("users", "phones", "likes", "ratings",
+                                          "brands", "tiers")}
 
     def users(self):
         return [r["user"] for r in

@@ -62,7 +62,10 @@ def get_engine():
             with st.spinner("กำลังเชื่อมต่อฐานข้อมูลกราฟ Neo4j…"):
                 eng = PhoneRecommender(uri, user, pw, database=db)
                 eng.stats()
-            return eng, "neo4j", f"Neo4j ({uri}{' · db ' + db if db else ''})"
+            label = f"Neo4j ({uri}{' · db ' + eng.database if eng.database else ' · db เริ่มต้น'})"
+            if getattr(eng, "database_note", None):
+                label += " · " + eng.database_note
+            return eng, "neo4j", label
         except Exception as e:
             st.session_state["neo4j_error"] = type(e).__name__
     elif uri:
@@ -143,6 +146,16 @@ RATINGS = engine.rating_stats()
 USERS = engine.users()
 DEFAULT_USER = "สมชาย" if "สมชาย" in USERS else (USERS[0] if USERS else "")
 
+
+def user_picker(container, label, key):
+    """เลือกผู้ใช้ — ฐานข้อมูลว่าง (เช่น Aura ที่เพิ่งสร้าง ยังไม่โหลดข้อมูล) ต้องไม่พัง"""
+    if not USERS:
+        container.info("ยังไม่มีข้อมูลในฐานข้อมูลนี้ — ไปที่หน้า **Admin & Setup** "
+                       "แล้วกด 「🔄 รีโหลดข้อมูลตัวอย่าง」หนึ่งครั้ง ข้อมูลจะขึ้นครบทุกหน้า")
+        return ""
+    idx = USERS.index(DEFAULT_USER) if DEFAULT_USER in USERS else 0
+    return container.selectbox(label, USERS, index=idx, key=key)
+
 # ------------------------------------------------------------------ sidebar
 with st.sidebar:
     st.markdown("## 📱 Phone Recommender")
@@ -187,8 +200,7 @@ if page == "Dashboard":
 
     left, right = st.columns([1.1, 1])
     with left:
-        who = st.selectbox("ดูโปรไฟล์ผู้ใช้", USERS, index=USERS.index(DEFAULT_USER),
-                           key="dash_user")
+        who = user_picker(st, "ดูโปรไฟล์ผู้ใช้", "dash_user")
         import seed_data
         prof = next((u for u in seed_data.USERS if u["user"] == who), {})
         liked = engine.liked_phones(who)
@@ -199,15 +211,23 @@ if page == "Dashboard":
         rows = [{"รุ่น": dname(p["phone_id"]), "ระดับราคา": p["tier"],
                  "ดาวที่ให้": RATINGS.get(p["phone_id"], {}).get("avg_stars", "-")}
                 for p in liked]
-        st.dataframe(pd.DataFrame(rows), hide_index=True)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), hide_index=True)
+        else:
+            st.caption("ยังไม่มีความสนใจในฐานข้อมูลนี้ — โหลดข้อมูลได้ที่หน้า Admin & Setup")
     with right:
         st.markdown("### 10 รุ่นที่มีคนสนใจมากสุด")
-        df = pd.DataFrame([{"รุ่น": dname(p["phone_id"]), "คนสนใจ": p["likes"]}
-                           for p in engine.phones()[:10]])
-        st.bar_chart(df.set_index("รุ่น"), height=280, color="#FF8833")
-        st.markdown("### จำนวนรุ่นในแต่ละระดับราคา")
-        tiers = pd.DataFrame(engine.phones())
-        st.bar_chart(tiers.groupby("tier")["phone_id"].count(), height=200, color="#4CC9F0")
+        all_phones = engine.phones()
+        if all_phones:
+            df = pd.DataFrame([{"รุ่น": dname(p["phone_id"]), "คนสนใจ": p["likes"]}
+                               for p in all_phones[:10]])
+            st.bar_chart(df.set_index("รุ่น"), height=280, color="#FF8833")
+            st.markdown("### จำนวนรุ่นในแต่ละระดับราคา")
+            tiers = pd.DataFrame(all_phones)
+            st.bar_chart(tiers.groupby("tier")["phone_id"].count(), height=200, color="#4CC9F0")
+        else:
+            st.info("ฐานข้อมูลนี้ยังว่างอยู่ — กด 「🔄 รีโหลดข้อมูลตัวอย่าง」ในหน้า **Admin & Setup** "
+                    "แล้วตัวเลข/กราฟทุกหน้าจะขึ้นครบ (12 ผู้ใช้ × 23 รุ่น × 38 ความสนใจ + คะแนนดาว)")
 
     st.divider()
     st.markdown(f"### คำแนะนำล่าสุดของ {who} (วิธีผสม)")
@@ -221,7 +241,7 @@ elif page == "Recommendations":
     st.subheader("✨ คำแนะนำมือถือ (Recommendations)")
     c1, c2, c3 = st.columns([1.3, 1.5, 1])
     with c1:
-        who = st.selectbox("เลือกผู้ใช้", USERS, index=USERS.index(DEFAULT_USER), key="rec_user")
+        who = user_picker(st, "เลือกผู้ใช้", "rec_user")
     with c2:
         mode = st.selectbox("วิธีให้คะแนน (เทียบได้ 5 วิธี)", list(METHODS))
     with c3:
@@ -317,13 +337,16 @@ elif page == "Like & Rate":
     st.subheader("📝 บันทึกความสนใจ / ให้คะแนน (Like & Rate)")
     st.caption("แก้ข้อมูลในฐานข้อมูลกราฟจริง (หรือข้อมูลในหน่วยความจำของเซสชันนี้) "
                "แล้วคำแนะนำเปลี่ยนทันที — ไม่ต้องเทรนโมเดลใหม่")
-    who = st.selectbox("เลือกผู้ใช้", USERS, index=USERS.index(DEFAULT_USER), key="rate_user")
+    who = user_picker(st, "เลือกผู้ใช้", "rate_user")
     liked = engine.liked_phones(who)
     liked_ids = {p["phone_id"] for p in liked}
     fresh = [p for p in engine.phones() if p["phone_id"] not in liked_ids]
 
     c1, c2 = st.columns([2, 1])
     with c1:
+        if not fresh:
+            st.warning("ยังไม่มีข้อมูลรุ่นมือถือในฐานข้อมูลนี้ — กด 「🔄 รีโหลดข้อมูลตัวอย่าง」ในหน้า Admin & Setup ก่อน")
+            st.stop()
         pick = st.selectbox("รุ่นมือถือ (แสดงรุ่นที่ยังไม่สนใจก่อน)",
                             [f"{p['phone_id']} · {dname(p['phone_id'])}" for p in fresh])
         pid = pick.split(" · ")[0]
@@ -383,7 +406,7 @@ elif page == "Graph Explorer":
 
     st.subheader("🕸️ สำรวจโครงสร้างกราฟ (Graph Explorer)")
     c1, c2 = st.columns([1, 2])
-    who = c1.selectbox("โฟกัสที่ผู้ใช้", USERS, index=USERS.index(DEFAULT_USER), key="gx_user")
+    who = user_picker(c1, "โฟกัสที่ผู้ใช้", "gx_user")
     mode = c2.radio("วิธีให้คะแนนที่ใช้ไฮไลต์",
                     ["ถ่วงน้ำหนัก (Jaccard)", "เพื่อน + ยี่ห้อ/ราคา (ผสม)"], horizontal=True)
     fn = engine.recommend_weighted if mode.startswith("ถ่วง") else engine.recommend_hybrid

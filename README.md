@@ -86,14 +86,19 @@ py -3.13 tools/load_neo4j.py bolt://127.0.0.1:7687 neo4j <password> phones
 py -3.13 tools/consistency_test.py bolt://127.0.0.1:7687 neo4j <password> phones
 ```
 
-### 3) ต่อ Neo4j Aura (คลาวด์ฟรี) — สำหรับเดโมตอนนำเสนอ
-สร้างไฟล์ `.streamlit/secrets.toml` ( **ห้าม commit** — มี `.example` ให้ดูตัวอย่าง)
+### 3) ต่อ Neo4j จริง — ในเครื่อง หรือ Neo4j Aura Free บนคลาวด์
+ในเครื่อง: สร้างไฟล์ `.streamlit/secrets.toml` ( **ห้าม commit** — มี `.example` ให้ดูตัวอย่าง)
 ```toml
-NEO4J_URI = "neo4j+s://xxxxxxxx.databases.neo4j.io"
+NEO4J_URI = "neo4j+s://xxxxxxxx.databases.neo4j.io"   # หรือ bolt://127.0.0.1:7687 ในเครื่อง
 NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "รหัสผ่านของ instance"
-NEO4J_DATABASE = "neo4j"
+NEO4J_DATABASE = "neo4j"                                # ในเครื่องใช้ "phones"
 ```
+บน Streamlit Cloud: ใส่ค่าเดียวกันนี้ที่ **Settings → Secrets** ของแอป (ไม่ต้อง commit)
+แล้วกด **🔄 รีโหลดข้อมูลตัวอย่าง** ในหน้า *Admin & Setup* เพื่อโหลดข้อมูลขึ้น Aura
+- Aura Free หลับเมื่อไม่ใช้ 3 วัน → เปิดครั้งแรกอาจรอ ~20-30 วิ (โค้ดลองซ้ำให้เอง)
+- ถ้าตั้งชื่อฐานข้อมูลที่ไม่มี โค้ดจะสลับไปใช้ฐานข้อมูลเริ่มต้นให้เอง + อธิบายในแถบข้าง
+- ฐานข้อมูลว่างก็ไม่พัง: ทุกหน้าขึ้น 0 แล้วชี้ไปที่ปุ่มโหลดข้อมูล
 
 ### 4) Deploy ขึ้น Streamlit Community Cloud (ฟรี)
 ดูขั้นตอนใน [`docs/deploy-streamlit-cloud.md`](docs/deploy-streamlit-cloud.md) — repo นี้ deploy ได้ทันที
