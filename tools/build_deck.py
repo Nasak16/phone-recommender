@@ -388,21 +388,22 @@ tb(s, 1.05, 6.6, 11.2, 0.6,
       "— ดูหน้าผลการทดสอบ)", 11, TEXT, False)]], space_after=3)
 
 # ---------------------------------------------------------------- 9 สาธิต: ภาพรวมแอป
-s = slide(); header(s, "สาธิตการใช้งาน", "เว็บแอป Streamlit ต่อ Neo4j — เมนู 6 หน้า", 9)
+s = slide(); header(s, "สาธิตการใช้งาน", "เว็บแอป Streamlit ต่อ Neo4j — เมนู 6 หน้า + หน้ารวมงาน", 9)
 pages = [("Dashboard", "ภาพรวมระบบ 6 ตัวชี้วัด + กราฟ + โปรไฟล์ผู้ใช้"),
          ("Recommendations", "การ์ดคำแนะนำมีภาพสินค้า + คะแนน + เหตุผล (5 วิธี)"),
          ("Phone Search", "ค้นหา/กรอง 23 รุ่น พร้อมภาพสินค้าจริง"),
          ("Like & Rate", "เพิ่ม/ลบความสนใจ + ให้ดาว แล้วเห็นผลก่อน–หลัง"),
          ("Graph Explorer", "กราฟความสัมพันธ์ + ตาราง edge + รัน Cypher เอง"),
-         ("Admin & Setup", "schema + รีโหลดข้อมูล idempotent + ดาวน์โหลด CSV")]
-yy = 1.3
+         ("Admin & Setup", "schema + รีโหลดข้อมูล idempotent + ดาวน์โหลด CSV"),
+         ("Index & Links", "หัวข้อรวมงานทุกชิ้นบน GitHub + ลิงก์หน้า index")]
+yy = 1.26
 for i, (nm, d) in enumerate(pages):
-    rect(s, 0.82, yy, 5.6, 0.72, CARD, BORDER)
-    rect(s, 0.82, yy, 0.055, 0.72, [ORANGE, GREEN, CYAN, YELLOW, ORANGE, GREEN][i],
+    rect(s, 0.82, yy, 5.6, 0.66, CARD, BORDER)
+    rect(s, 0.82, yy, 0.055, 0.66, [ORANGE, GREEN, CYAN, YELLOW, ORANGE, GREEN, CYAN][i],
          shape=MSO_SHAPE.RECTANGLE)
-    tb(s, 1.0, yy + 0.06, 2.5, 0.3, nm, 12, TEXT, True)
-    tb(s, 1.0, yy + 0.36, 5.25, 0.3, d, 10, MUTED)
-    yy += 0.79
+    tb(s, 1.0, yy + 0.04, 2.5, 0.28, nm, 11.5, TEXT, True)
+    tb(s, 1.0, yy + 0.32, 5.25, 0.28, d, 9.5, MUTED)
+    yy += 0.72
 p = os.path.join(BE, "app_reco.png")
 if os.path.exists(p):
     pic_fit(s, p, 6.65, 1.3, 5.87, 5.45)

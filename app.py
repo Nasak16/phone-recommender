@@ -22,10 +22,11 @@ st.set_page_config(page_title="ระบบแนะนำมือถือ | N
                    layout="wide")
 
 PAGES = ["Dashboard", "Recommendations", "Phone Search", "Like & Rate",
-         "Graph Explorer", "Admin & Setup"]
+         "Graph Explorer", "Index & Links", "Admin & Setup"]
 PAGE_TH = {"Dashboard": "ภาพรวมระบบ", "Recommendations": "แนะนำมือถือ",
            "Phone Search": "ค้นหารุ่นมือถือ", "Like & Rate": "ถูกใจ / ให้คะแนน",
-           "Graph Explorer": "สำรวจโครงสร้างกราฟ", "Admin & Setup": "ผู้ดูแลระบบ"}
+           "Graph Explorer": "สำรวจโครงสร้างกราฟ", "Index & Links": "งานทั้งหมด (Index)",
+           "Admin & Setup": "ผู้ดูแลระบบ"}
 METHODS = {
     "ถ่วงน้ำหนัก (Jaccard)": "weighted",
     "นับโหวตเพื่อน": "votes",
@@ -455,7 +456,50 @@ elif page == "Graph Explorer":
                        "คำสั่งนี้จะทำงานเมื่อตั้งค่า Neo4j ใน secrets "
                        "(ดู docs/deploy-streamlit-cloud.md)")
 
-# ------------------------------------------------------------------ 6. Admin & Setup
+# ------------------------------------------------------------------ 6. Index (งานทั้งหมด)
+elif page == "Index & Links":
+    import homework_index as HW
+
+    st.subheader("📚 งานทั้งหมดของเรา (Index)")
+    st.caption("รวมทุกงานที่ส่งไว้บน GitHub — หน้า index หลักอยู่ที่ "
+               f"[{HW.INDEX_URL}]({HW.INDEX_URL})")
+
+    cats = {}
+    for it in HW.HOMEWORK:
+        cats.setdefault(it["category"], []).append(it)
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("งานทั้งหมด", len(HW.HOMEWORK))
+    c2.metric("หมวดวิชา", len(cats))
+    c3.metric("งานในวิชานี้ (ฐานข้อมูล)", len(cats.get("ฐานข้อมูล", [])))
+
+    st.markdown("#### 🗂️ งานในวิชานี้ (ฐานข้อมูล)")
+    for it in cats.get("ฐานข้อมูล", []):
+        with st.container(border=True):
+            st.markdown(f"**{it['title']}**")
+            st.caption(it["desc"])
+            links = " · ".join([f"[{lbl}]({href})" for lbl, href in it["extra"]])
+            st.markdown(f"[📂 โค้ดบน GitHub]({it['url']})" + (f" · {links}" if links else "")
+                        + f" · _อัปเดต {it['date']}_")
+
+    st.divider()
+    for cat, items in sorted(cats.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        if cat == "ฐานข้อมูล":
+            continue
+        with st.expander(f"{cat} — {len(items)} งาน"):
+            for it in items:
+                st.markdown(f"- [{it['title']}]({it['url']}) · `{it['repo']}` · {it['date']}")
+                if it["desc"]:
+                    st.caption(it["desc"])
+
+    st.divider()
+    st.markdown(f"""**ลิงก์ที่เกี่ยวข้อง**
+- หน้า index หลัก: [{HW.INDEX_URL}]({HW.INDEX_URL})
+- โค้ดระบบนี้: [github.com/Nasak16/phone-recommender](https://github.com/Nasak16/phone-recommender)
+- สไลด์นำเสนอ (.pptx/.pdf): [slides/](https://github.com/Nasak16/phone-recommender/tree/main/slides)
+- โน๊ตบุ๊ก Colab: [PhoneRecommender_Neo4j_007.ipynb](https://colab.research.google.com/gist/Nasak16/8667b219bbff8253335ec78f78b5c79e/PhoneRecommender_Neo4j_007.ipynb)""")
+
+# ------------------------------------------------------------------ 7. Admin & Setup
 else:
     import seed_data
 
