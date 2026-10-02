@@ -543,6 +543,8 @@ else:
     import seed_data
 
     st.subheader("⚙️ ผู้ดูแลระบบ: ตรวจสอบและตั้งค่าข้อมูล (Admin & Setup)")
+    if st.session_state.get("admin_flash"):
+        st.success(st.session_state.pop("admin_flash"))
     st.write(f"**backend ที่ใช้อยู่:** {'Neo4j (ฐานข้อมูลกราฟจริง)' if backend == 'neo4j' else 'โหมดสาธิตในหน่วยความจำ'}"
              f" · {backend_label}")
 
@@ -573,14 +575,35 @@ else:
                        f"{len(r)} คะแนนดาว")
         except Exception as e:
             st.error(f"โหลดไม่สำเร็จ: {type(e).__name__}: {e}")
-    if c2.button("🧹 ล้างโหนดที่ไม่มีเส้นเชื่อม", use_container_width=True):
+    if c2.button("♻️ รีเซ็ตข้อมูลกลับค่าเริ่มต้น", use_container_width=True,
+                 help="ล้างข้อมูลในกราฟทั้งหมด (โหมดสาธิต: ล้างเฉพาะข้อมูลที่คุณแก้ในเซสชันนี้) "
+                      "แล้วโหลดข้อมูลตัวอย่างกลับเข้าไปใหม่ = สภาพเหมือนเปิดแอปครั้งแรก"):
+        u, p, l = seed_data.graph_data()
+        r = seed_data.ratings_data(p)
         try:
-            engine._run("MATCH (u:User) WHERE NOT (u)--() DELETE u")
-            engine._run("MATCH (p:Phone) WHERE NOT (p)--() DETACH DELETE p")
-            st.success("ลบโหนดที่ไม่มีเส้นเชื่อมแล้ว")
+            if hasattr(engine, "reset"):
+                engine.reset()
+            if hasattr(engine, "ensure_constraints"):
+                engine.ensure_constraints()
+            engine.import_data(u, p, l, r)
+            # เก็บข้อความไว้ก่อน rerun ไม่งั้นข้อความ success หายไปทันทีที่หน้าโหลดใหม่
+            st.session_state["admin_flash"] = (
+                f"♻️ รีเซ็ตกลับค่าเริ่มต้นแล้ว: {len(u)} ผู้ใช้ / {len(p)} รุ่น / "
+                f"{len(l)} ความสนใจ / {len(r)} คะแนนดาว")
+            st.rerun()
         except Exception as e:
-            st.warning(f"โหมดสาธิตไม่รองรับการล้างข้อมูลด้วย Cypher ({type(e).__name__}) — "
-                       f"ใช้ปุ่มรีเฟรชแทนได้")
+            st.error(f"รีเซ็ตไม่สำเร็จ: {type(e).__name__}: {e}")
+    if backend == "neo4j":
+        if st.button("🧹 ล้างโหนดที่ไม่มีเส้นเชื่อม", use_container_width=False):
+            try:
+                engine._run("MATCH (u:User) WHERE NOT (u)--() DELETE u")
+                engine._run("MATCH (p:Phone) WHERE NOT (p)--() DETACH DELETE p")
+                st.success("ลบโหนดที่ไม่มีเส้นเชื่อมแล้ว")
+            except Exception as e:
+                st.error(f"ล้างไม่สำเร็จ: {type(e).__name__}: {e}")
+    else:
+        st.caption("โหมดสาธิต: ไม่มีคำสั่ง Cypher ให้ใช้ — ปุ่ม 「♻️ รีเซ็ตข้อมูลกลับค่าเริ่มต้น」 "
+                   "จะคืนข้อมูลตัวอย่างให้เหมือนเปิดแอปครั้งแรก")
     c3.download_button("⬇️ ดาวน์โหลดข้อมูลเป็น CSV",
                        data=pd.DataFrame([{"phone_id": p["phone_id"], "model": p["model"],
                                            "brand": p["brand"], "tier": p["tier"],

@@ -27,6 +27,14 @@ class LocalPhoneRecommender:
     def close(self):
         pass
 
+    def reset(self):
+        """กลับไปใช้ข้อมูลตัวอย่างชุดเดิม (ล้างความสนใจ/ดาวที่แก้ระหว่างใช้งานในโหมดสาธิต)"""
+        import seed_data
+        users, phones, likes = seed_data.graph_data()
+        ratings = seed_data.ratings_data(phones)
+        self.__init__(users, phones, likes, ratings)
+        return self.stats()
+
     def stats(self):
         return {"users": len(self.users_list), "phones": len(self.phones_list),
                 "likes": sum(len(v) for v in self.likes.values()),
