@@ -1,13 +1,16 @@
 [theme]
+# ธีม dark neon ให้ตรงกับ CSS ใน theme.py (ใช้ทั้งในเครื่องและบน Streamlit Cloud)
 base = "dark"
-primaryColor = "#FF8833"
-backgroundColor = "#0E1626"
-secondaryBackgroundColor = "#172136"
-textColor = "#E9EFFA"
+primaryColor = "#38D0FF"
+backgroundColor = "#05070F"
+secondaryBackgroundColor = "#0B1220"
+textColor = "#E6F1FF"
 
 [server]
 headless = true
-port = 8779
+# ห้ามตั้ง port ตายตัวในไฟล์นี้: Streamlit Cloud ตรวจสุขภาพแอปที่พอร์ต 8501
+# ถ้า pin port อื่นไว้ cloud จะขึ้น "connection refused"
+# เวลารันในเครื่องให้ระบุพอร์ตผ่าน command line แทน เช่น --server.port 8783
 
 [browser]
 gatherUsageStats = false
