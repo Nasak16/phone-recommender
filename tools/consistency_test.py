@@ -53,10 +53,15 @@ for u in real.users():
     if ha != hb:
         fails.append((u, "hybrid", ha, hb))
 
+    ra = [(r["model"], r["score"], r["votes"], r["avg_stars"]) for r in real.recommend_rated(u, 5)]
+    rb = [(r["model"], r["score"], r["votes"], r["avg_stars"]) for r in loc.recommend_rated(u, 5)]
+    if ra != rb:
+        fails.append((u, "rated", ra, rb))
+
 if fails:
     print("\nไม่ตรงกัน %d จุด:" % len(fails))
     for u, what, a, b in fails:
         print(f"  {u} / {what}\n     neo4j : {a}\n     local : {b}")
     sys.exit(1)
-print("\nผลตรงกันครบทุกข้อ (12 คน × 5 การตรวจ) — backend สำรองเชื่อถือได้")
+print("ผลตรงกันครบทุกข้อ (12 คน × 6 การตรวจ) — backend สำรองเชื่อถือได้")
 real.close()

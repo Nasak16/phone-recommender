@@ -4,8 +4,8 @@
   "model": "iPhone 15 Pro Max",
   "brand": "Apple",
   "tier": "เรือธง",
-  "image": "assets/phones/iphone-15-pro-max.jpg",
-  "image_title": "wikipedia:en:IPhone 15 Pro",
+  "image": "assets/phones/apple-iphone-15-pro-max.jpg",
+  "image_title": "File:IPhone 15 pro max.png",
   "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f5/IPhone_15_Pro_Vector.svg/500px-IPhone_15_Pro_Vector.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
  },
  {
@@ -13,8 +13,8 @@
   "model": "iPhone 15",
   "brand": "Apple",
   "tier": "เรือธง",
-  "image": "assets/phones/iphone-15.jpg",
-  "image_title": "wikipedia:en:IPhone 15",
+  "image": "assets/phones/apple-iphone-15.jpg",
+  "image_title": "File:Apple iPhone 15 Pink (November 1, 2024).jpg",
   "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ee/IPhone_15_Vector.svg/500px-IPhone_15_Vector.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
  },
  {
@@ -22,8 +22,8 @@
   "model": "iPhone 13",
   "brand": "Apple",
   "tier": "ระดับกลาง",
-  "image": "assets/phones/iphone-13.jpg",
-  "image_title": "wikipedia:en:IPhone 13",
+  "image": "assets/phones/apple-iphone-13.jpg",
+  "image_title": "File:IPhone 13 White 256g.jpg",
   "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/IPhone_13_vector.svg/500px-IPhone_13_vector.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"
  },
  {
@@ -58,8 +58,8 @@
   "model": "Galaxy A55",
   "brand": "Samsung",
   "tier": "ระดับกลาง",
-  "image": "assets/phones/galaxy-a55.jpg",
-  "image_title": "File:Galaxy A55.jpg",
+  "image": "assets/phones/samsung-galaxy-a55.jpg",
+  "image_title": "File:Samsung Galaxy A55 5G 2024.jpg",
   "image_page": "https://commons.wikimedia.org/wiki/File:Galaxy_A55.jpg"
  },
  {
@@ -175,8 +175,8 @@
   "model": "OnePlus 13R",
   "brand": "OnePlus",
   "tier": "ระดับกลาง",
-  "image": "assets/phones/oneplus-13r.jpg",
-  "image_title": "File:OnePlus 13R back.jpg",
+  "image": "assets/phones/oneplus-oneplus-13r.jpg",
+  "image_title": "File:OnePlus 13R front.jpg",
   "image_page": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/OnePlus_13R_back.jpg/1280px-OnePlus_13R_back.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
  },
  {

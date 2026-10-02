@@ -12,13 +12,16 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 class LocalPhoneRecommender:
-    def __init__(self, users, phones, likes):
+    def __init__(self, users, phones, likes, ratings=None):
         self.users_list = [dict(u) for u in users]
         self.phones_list = [dict(p) for p in phones]
         self.by_id = {p["phone_id"]: p for p in self.phones_list}
         self.likes = {u["user"]: set() for u in self.users_list}
         for u, p in likes:
             self.likes.setdefault(u, set()).add(p)
+        self.ratings = {}                      # {ผู้ใช้: {phone_id: ดาว}}
+        for u, p, s in (ratings or []):
+            self.ratings.setdefault(u, {})[p] = float(s)
 
     # ---------- ข้อมูล ----------
     def close(self):
@@ -27,6 +30,7 @@ class LocalPhoneRecommender:
     def stats(self):
         return {"users": len(self.users_list), "phones": len(self.phones_list),
                 "likes": sum(len(v) for v in self.likes.values()),
+                "ratings": sum(len(v) for v in self.ratings.values()),
                 "brands": len({p["brand"] for p in self.phones_list}),
                 "tiers": len({p["tier"] for p in self.phones_list})}
 
@@ -146,6 +150,75 @@ class LocalPhoneRecommender:
             }
         return sorted(out.values(), key=lambda r: (-r["score"], r["model"]))[:top_n]
 
+    def ensure_constraints(self):
+        """เทียบเท่า Neo4j (ในหน่วยความจำไม่ต้องมี constraint)"""
+        return None
+
+    def import_data(self, users, phones, likes, ratings=None):
+        """เพิ่ม/รีเฟรชข้อมูลแบบ idempotent (ผู้ใช้หรือรุ่นเดิมจะถูกอัปเดตทับ)"""
+        for u in users:
+            if u["user"] not in {x["user"] for x in self.users_list}:
+                self.users_list.append(dict(u))
+            self.likes.setdefault(u["user"], set())
+        for p in phones:
+            self.by_id[p["phone_id"]] = dict(p)
+            if p["phone_id"] not in {x["phone_id"] for x in self.phones_list}:
+                self.phones_list.append({**dict(p), "likes": 0})
+        for u, pid in likes:
+            self.likes.setdefault(u, set()).add(pid)
+        for u, pid, s in (ratings or []):
+            self.ratings.setdefault(u, {})[pid] = float(s)
+        counts = {}
+        for pid_list in self.likes.values():
+            for pid in pid_list:
+                counts[pid] = counts.get(pid, 0) + 1
+        for p in self.phones_list:
+            p["likes"] = counts.get(p["phone_id"], 0)
+        self.phones_list.sort(key=lambda p: (-p["likes"], p["model"]))
+        return len(likes), len(ratings or [])
+
+    def recommend_rated(self, user, top_n=5):
+        """สัญญาณที่ 5: เพื่อนที่รสนิยมใกล้ ถ่วงด้วยคะแนนดาวที่เพื่อนให้รุ่นนั้น"""
+        mine = self.likes.get(user, set())
+        score, voters, stars, via = {}, {}, {}, {}
+        for other, theirs in self.likes.items():
+            if other == user:
+                continue
+            common = mine & theirs
+            if not common:
+                continue
+            jac = len(common) / (len(mine) + len(theirs) - len(common))
+            for pid in theirs - mine:
+                st = self.ratings.get(other, {}).get(pid)
+                if st is None:
+                    continue                    # เพื่อนยังไม่ให้ดาวรุ่นนี้ → ไม่นับ
+                score[pid] = score.get(pid, 0.0) + jac * st / 5.0
+                voters.setdefault(pid, []).append(other)
+                stars.setdefault(pid, []).append(st)
+                via.setdefault(pid, set()).update(common)
+        rows = []
+        for pid in score:
+            p = self.by_id[pid]
+            rows.append({"phone_id": pid, "model": p["model"], "brand": p["brand"],
+                         "tier": p["tier"], "image": p["image"],
+                         "score": round(score[pid], 3), "votes": len(set(voters[pid])),
+                         "voters": sorted(set(voters[pid])),
+                         "via_phones": sorted(self.by_id[x]["model"] for x in via[pid]),
+                         "avg_stars": round(sum(stars[pid]) / len(stars[pid]), 2)})
+        return sorted(rows, key=lambda r: (-r["score"], r["model"]))[:top_n]
+
+    def rating_stats(self):
+        """ดาวเฉลี่ยของแต่ละรุ่น (ใช้แสดงบนการ์ด)"""
+        agg = {}
+        for u, items in self.ratings.items():
+            for pid, st in items.items():
+                agg.setdefault(pid, []).append(st)
+        return {pid: {"phone_id": pid, "avg_stars": round(sum(v) / len(v), 2),
+                      "n_raters": len(v)} for pid, v in agg.items()}
+
+    def add_rating(self, user, phone_id, stars):
+        self.ratings.setdefault(user, {})[phone_id] = float(stars)
+
     def popular(self, top_n=5):
         out = []
         for p in self.phones_list:
@@ -181,4 +254,4 @@ def from_files():
     """อ่านข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j"""
     import seed_data
     users, phones, likes = seed_data.graph_data()
-    return LocalPhoneRecommender(users, phones, likes)
+    return LocalPhoneRecommender(users, phones, likes, seed_data.ratings_data(phones))

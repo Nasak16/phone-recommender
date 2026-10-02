@@ -61,6 +61,43 @@ LIKES_BY_USER = {
 }
 
 
+# ---------------------------------------------------------------- คะแนนดาว (1.0-5.0)
+# เก็บเป็นความสัมพันธ์ (User)-[:RATED {stars}]->(Phone) — ใช้เป็นสัญญาณที่ 5
+# ข้อมูลสมมติชุดเดียวกับความสนใจ (ผู้ใช้ให้คะแนนเฉพาะรุ่นที่ตัวเองสนใจ)
+RATINGS_BY_USER = {
+    "สมชาย": {"Galaxy S24 Ultra": 5.0, "Xiaomi 14": 4.5, "Honor Magic6 Pro": 4.0,
+              "Xperia 1 V": 4.5},
+    "นรินทร์": {"Pixel 8 Pro": 5.0, "Pixel 7a": 4.0, "Xiaomi 14": 4.5, "OnePlus 13R": 4.0},
+    "มะลิ": {"iPhone 15 Pro Max": 5.0, "iPhone 15": 4.5, "iPhone 13": 4.0,
+             "iPhone SE (3rd gen)": 4.0},
+    "ปวีณา": {"iPhone 15 Pro Max": 5.0, "Galaxy S24 Ultra": 4.5, "Galaxy S23": 4.0},
+    "อนุชา": {"Galaxy S24 Ultra": 4.5, "Galaxy S23": 4.5, "Galaxy A55": 3.5},
+    "พลอย": {"Find X7 Ultra": 5.0, "Find X6 Pro": 4.5, "vivo X200 Pro": 5.0},
+    "กัญญา": {"Redmi Note 14 Pro+": 4.5, "POCO X3 Pro": 4.0, "A78": 3.5},
+    "เฟิร์น": {"realme 16 Pro": 4.0, "C35": 3.5, "Xperia 1 V": 5.0},
+    "ชัย": {"ROG Phone 6": 5.0, "POCO X3 Pro": 4.5, "Xiaomi 14": 4.0},
+    "ธนกร": {"ROG Phone 6": 4.5, "realme 16 Pro": 4.0, "Xiaomi 14": 4.5},
+    "แบม": {"A78": 4.0, "Galaxy A55": 4.5, "Y36": 3.5},
+    "มินต์": {"Xperia 1 V": 5.0, "C35": 4.0},
+}
+
+
+def ratings_data(phones=None):
+    """คืน [(ชื่อผู้ใช้, phone_id, ดาว)] — ต้องมีรุ่นอยู่ใน phones.json เท่านั้น"""
+    phones = phones or load_phones()
+    by_model = {p["model"]: p for p in phones}
+    out, missing = [], []
+    for user, items in RATINGS_BY_USER.items():
+        for model, stars in items.items():
+            if model not in by_model:
+                missing.append(model)
+                continue
+            out.append((user, by_model[model]["phone_id"], float(stars)))
+    if missing:
+        raise KeyError("ชื่อรุ่นใน RATINGS_BY_USER ไม่มีใน phones.json: %s" % sorted(set(missing)))
+    return out
+
+
 def display_name(phone):
     """ชื่อรุ่นสำหรับแสดงผล — กันชื่อยี่ห้อซ้ำ (เช่น brand 'vivo' + model 'vivo X100 Pro')"""
     model, brand = phone["model"], phone.get("brand", "")
@@ -96,7 +133,16 @@ def graph_data():
 
 if __name__ == "__main__":
     u, p, l = graph_data()
-    print("ผู้ใช้ %d คน | มือถือ %d รุ่น | ความสนใจ %d เส้น" % (len(u), len(p), len(l)))
+    r = ratings_data(p)
+    print("ผู้ใช้ %d คน | มือถือ %d รุ่น | ความสนใจ %d เส้น | คะแนนดาว %d รายการ"
+          % (len(u), len(p), len(l), len(r)))
+    avg = {}
+    for _, pid, stars in r:
+        avg.setdefault(pid, []).append(stars)
+    top = sorted(avg.items(), key=lambda kv: -sum(kv[1]) / len(kv[1]))[:3]
+    print("ดาวเฉลี่ยสูงสุด:", ", ".join(
+        next(x["model"] for x in p if x["phone_id"] == pid) + " (%.2f)" % (sum(v) / len(v))
+        for pid, v in top))
     print("ยี่ห้อ:", ", ".join(sorted({x['brand'] for x in p})))
     print("ระดับราคา:", ", ".join(sorted({x['tier'] for x in p})))
     for ph in p:

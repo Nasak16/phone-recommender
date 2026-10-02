@@ -44,8 +44,9 @@ def save(im, name, max_w=1500):
 for src, dst in [("shots/01_hero.png", "app_reco.png"),
                  ("shots/02_catalog.png", "app_catalog.png"),
                  ("shots/03_graph.png", "app_graph_tab.png"),
-                 ("shots/04_demo.png", "app_demo.png"),
-                 ("shots/05_about.png", "app_about.png"),
+                 ("shots/04_rate.png", "app_demo.png"),
+                 ("shots/05_admin.png", "app_about.png"),
+                 ("shots/07_dashboard.png", "app_dashboard.png"),
                  ("shots/06_reco_card.png", "app_top.png")]:
     p = os.path.join(ROOT, src)
     if os.path.exists(p):
@@ -53,8 +54,9 @@ for src, dst in [("shots/01_hero.png", "app_reco.png"),
 
 # ภาพการ์ดแนะำนำแบบซูม (ใช้สไลด์เดโม) — ตัดเอาเฉพาะโซนการ์ด
 hero = Image.open(os.path.join(ROOT, "shots", "01_hero.png"))
-save(hero.crop((0, 300, 1680, 1500)), "reco_zoom.png")
-save(hero.crop((0, 0, 620, 1400)), "sidebar.png")
+w, h = hero.size
+save(hero.crop((0, min(300, h // 5), w, min(h, 300 + 1200))), "reco_zoom.png")
+save(hero.crop((0, 0, min(620, w), min(h, 1400))), "sidebar.png")
 
 # ภาพกราฟที่วาดเอง + ตารางภาพมือถือ
 g = os.path.join(ROOT, "tools", "out", "graph_สมชาย.png")

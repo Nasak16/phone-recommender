@@ -18,12 +18,13 @@ PW = sys.argv[3] if len(sys.argv) > 3 else os.environ.get("NEO4J_PASSWORD", "")
 DB = sys.argv[4] if len(sys.argv) > 4 else os.environ.get("NEO4J_DATABASE", "phones")
 
 users, phones, likes = seed_data.graph_data()
+ratings = seed_data.ratings_data(phones)
 rec = PhoneRecommender(URI, USER, PW, database=DB)
 print("เชื่อมต่อ:", URI, "| database:", DB)
 print("server:", rec.driver.get_server_info().agent)
 rec.reset()
 rec.ensure_constraints()
-rec.import_data(users, phones, likes)
+rec.import_data(users, phones, likes, ratings)
 print("ข้อมูลในกราฟ:", rec.stats())
 
 target = "สมชาย"
@@ -48,6 +49,15 @@ print(f"\n--- แนะนำให้ {target}: ตามยี่ห้อ/ร
 for r in rec.recommend_content(target, 5):
     print(f"    {r['brand']} {r['model'][:24]:26s} ยี่ห้อตรง {r['brand_matches']} · "
           f"ระดับราคาตรง {r['tier_matches']} (รวม {r['content_score']})")
+
+print(f"\n--- แนะนำให้ {target}: เพื่อนถ่วงด้วยคะแนนดาว ---")
+for r in rec.recommend_rated(target, 5):
+    print(f"    {r['brand']} {r['model'][:24]:26s} score={r['score']} votes={r['votes']} "
+          f"ดาวเฉลี่ย={r['avg_stars']}")
+
+print(f"\n--- ดาวเฉลี่ยต่อรุ่น (Top 5) ---")
+for pid, s in list(rec.rating_stats().items())[:5]:
+    print(f"    {pid} ดาวเฉลี่ย {s['avg_stars']} จาก {s['n_raters']} คน")
 
 print(f"\n--- แนะนำให้ {target}: ผสมสองสัญญาณ ---")
 for r in rec.recommend_hybrid(target, 5):

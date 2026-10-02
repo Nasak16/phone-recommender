@@ -3,11 +3,15 @@
 """ระบบแนะนำมือถือ (Phone Recommender System) — Neo4j + Streamlit
 รหัส 007 · งาน: พัฒนาระบบแนะนำเป็นระบบของตัวเอง
 
-รัน: streamlit run app.py
+เมนู 6 หน้า (โครงเดียวกับงานตัวอย่างในวิชา — ทำเป็นโดเมนมือถือและเพิ่มของที่มากกว่า)
+  Dashboard / Recommendations / Phone Search / Like & Rate / Graph Explorer / Admin & Setup
+
+รัน: streamlit run app.py   (ไม่ตั้งค่า Neo4j ก็รันได้ → โหมดสาธิตในหน่วยความจำ)
 """
 import os
 import sys
 
+import pandas as pd
 import streamlit as st
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +20,19 @@ sys.path.insert(0, os.path.join(ROOT, "data"))
 
 st.set_page_config(page_title="ระบบแนะนำมือถือ | Neo4j + Streamlit", page_icon="📱",
                    layout="wide")
+
+PAGES = ["Dashboard", "Recommendations", "Phone Search", "Like & Rate",
+         "Graph Explorer", "Admin & Setup"]
+PAGE_TH = {"Dashboard": "ภาพรวมระบบ", "Recommendations": "แนะนำมือถือ",
+           "Phone Search": "ค้นหารุ่นมือถือ", "Like & Rate": "ถูกใจ / ให้คะแนน",
+           "Graph Explorer": "สำรวจโครงสร้างกราฟ", "Admin & Setup": "ผู้ดูแลระบบ"}
+METHODS = {
+    "ถ่วงน้ำหนัก (Jaccard)": "weighted",
+    "นับโหวตเพื่อน": "votes",
+    "ตามยี่ห้อ/ระดับราคา": "content",
+    "เพื่อน + ยี่ห้อ/ราคา (ผสม)": "hybrid",
+    "ถ่วงด้วยคะแนนดาว": "rated",
+}
 
 
 def _secret(key, default=None):
@@ -30,14 +47,13 @@ def get_engine():
 
     1) ถ้ามีการตั้งค่า Neo4j (secrets/env) → ต่อ Neo4j จริง
     2) ถ้าไม่มี/ต่อไม่ได้ → โหมดสาธิตในหน่วยความจำ **แยกต่อผู้เข้าชม 1 คน**
-       (ทดลองกดเพิ่ม/ลบความสนใจได้โดยไม่รบกวนคนอื่น และไม่ต้องมีเซิร์ฟเวอร์)
     """
     uri = _secret("NEO4J_URI", os.environ.get("NEO4J_URI", "")) or ""
     user = _secret("NEO4J_USER", os.environ.get("NEO4J_USER", "neo4j"))
     pw = _secret("NEO4J_PASSWORD", os.environ.get("NEO4J_PASSWORD", "")) or ""
     db = _secret("NEO4J_DATABASE", os.environ.get("NEO4J_DATABASE", None))
 
-    if uri and pw:                      # ตั้งค่าไว้ → ลองต่อจริงก่อน
+    if uri and pw:
         from recommender import PhoneRecommender
         try:
             with st.spinner("กำลังเชื่อมต่อฐานข้อมูลกราฟ Neo4j…"):
@@ -50,18 +66,12 @@ def get_engine():
         st.session_state["neo4j_error"] = "ไม่มีรหัสผ่าน NEO4J_PASSWORD"
 
     from graph_fallback import from_files
-    if "engine" not in st.session_state:          # ของแต่ละคน แยกกัน
+    if "engine" not in st.session_state:
         st.session_state["engine"] = from_files()
     err = st.session_state.get("neo4j_error")
-    note = f"โหมดสาธิตออนไลน์ · ข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j (ในหน่วยความจำของเซสชันคุณ" \
-           f"{' · ต่อ Neo4j ไม่ได้: ' + err if err else ''})"
+    note = ("โหมดสาธิตออนไลน์ · ข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j "
+            "(ในหน่วยความจำของเซสชันคุณ" + (" · ต่อ Neo4j ไม่ได้: " + err if err else "") + ")")
     return st.session_state["engine"], "local", note
-
-
-@st.cache_resource(show_spinner=False)
-def thai_font():
-    import graph_view
-    return graph_view.thai_font(ROOT)
 
 
 @st.cache_data(show_spinner=False)
@@ -75,6 +85,12 @@ def display_names():
                             os.path.splitext(os.path.basename(p["image"]))[0] + ".jpg")
         cards[p["phone_id"]] = card if os.path.exists(card) else os.path.join(ROOT, p["image"])
     return names, cards
+
+
+@st.cache_resource(show_spinner=False)
+def thai_font():
+    import graph_view
+    return graph_view.thai_font(ROOT)
 
 
 NAMES, CARDS = display_names()
@@ -102,233 +118,421 @@ def show_phone(row, width=150):
         st.info("ไม่มีภาพ")
 
 
+def stars_text(rating_map, pid):
+    s = rating_map.get(pid)
+    return f"⭐ {s['avg_stars']:.2f} ({s['n_raters']} คน)" if s else "⭐ ยังไม่มีคะแนน"
+
+
+def card(row, img_w=170, ratings=None, lines=None):
+    """การ์ดมือถือ: ภาพสินค้าจริง + ชื่อรุ่น + ระดับราคา + ดาว + เหตุผลของคำแนะนำ"""
+    with st.container(border=True):
+        show_phone(row, width=img_w)
+        st.markdown(f"**{dname(row['phone_id'])}**")
+        st.caption(f"{row.get('tier','')} · {stars_text(ratings or {}, row['phone_id'])}")
+        for ln in (lines or []):
+            st.markdown(ln)
+
+
 engine, backend, backend_label = get_engine()
 stat = engine.stats()
+RATINGS = engine.rating_stats()
 
+USERS = engine.users()
+DEFAULT_USER = "สมชาย" if "สมชาย" in USERS else (USERS[0] if USERS else "")
+
+# ------------------------------------------------------------------ sidebar
 with st.sidebar:
-    st.markdown("## 📱 ระบบแนะนำมือถือ")
-    st.caption("Neo4j (กราฟ) + Streamlit · รหัส 007")
+    st.markdown("## 📱 Phone Recommender")
+    st.caption("Neo4j (Graph DB) + Streamlit · รหัส 007")
+    st.markdown(
+        """<div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px 0">
+        <div style="width:46px;height:46px;border-radius:50%;background:#FF8833;color:#0E1626;
+        display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">
+        N</div><div><b>Nasak16</b><br><span style="color:#9FB0CB;font-size:12px">
+        ผู้ดูแลระบบ</span></div></div>""", unsafe_allow_html=True)
+    page = st.radio("เมนู", PAGES, format_func=lambda p: f"{p} · {PAGE_TH[p]}")
+    st.divider()
     if backend == "neo4j":
         st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
     else:
         st.info(backend_label, icon="🧪")
-    st.metric("ผู้ใช้ในระบบ", stat["users"])
-    c1, c2, c3 = st.columns(3)
-    c1.metric("รุ่นมือถือ", stat["phones"])
-    c2.metric("ความสนใจ", stat["likes"])
-    c3.metric("ยี่ห้อ", stat["brands"])
-
-    users = engine.users()
-    who = st.selectbox("เลือกผู้ใช้ที่จะแนะนำมือถือให้", users,
-                       index=users.index("สมชาย") if "สมชาย" in users else 0)
-    mode = st.radio("วิธีให้คะแนน", [
-        "ถ่วงน้ำหนัก (Jaccard)",
-        "นับโหวตเพื่อน",
-        "ตามยี่ห้อ/ราคา",
-        "ผสม: เพื่อน + ยี่ห้อ",
-    ])
-    top_n = st.slider("จำนวนที่แนะนำ", 1, 8, 3)
+    m1, m2, m3 = st.columns(3)
+    m1.metric("ผู้ใช้", stat["users"])
+    m2.metric("รุ่นมือถือ", stat["phones"])
+    m3.metric("ความสนใจ", stat["likes"])
+    m4, m5, m6 = st.columns(3)
+    m4.metric("คะแนนดาว", stat.get("ratings", 0))
+    m5.metric("ยี่ห้อ", stat["brands"])
+    m6.metric("ระดับราคา", stat["tiers"])
     st.divider()
-    st.caption("อัลกอริทึม: Collaborative Filtering บนกราฟ (เดิน 3 hop) + "
-               "Content-based ผ่านโหนด Brand/Tier")
+    st.caption("ข้อมูลของเราเอง 12 คน × 23 รุ่น พร้อมภาพสินค้าจริง "
+               "(ไม่ใช้ dataset สำเร็จรูป)")
 
-MODE = {"ถ่วงน้ำหนัก (Jaccard)": "weighted", "นับโหวตเพื่อน": "votes",
-        "ตามยี่ห้อ/ราคา": "content", "ผสม: เพื่อน + ยี่ห้อ": "hybrid"}[mode]
+st.markdown(
+    """<div style="background:linear-gradient(90deg,#172136,#0E1626);border:1px solid #2B3A5C;
+    border-radius:14px;padding:18px 22px;margin-bottom:6px">
+    <h1 style="margin:0;font-size:30px">📱 Phone Recommender System</h1>
+    <p style="margin:6px 0 0 0;color:#9FB0CB">ระบบแนะนำมือถือบนฐานข้อมูลกราฟ Neo4j —
+    อธิบายเหตุผลของทุกคำแนะนำได้ และแสดงภาพสินค้าจริงในการ์ดทุกใบ</p></div>""",
+    unsafe_allow_html=True)
 
-recs = {"weighted": engine.recommend_weighted, "votes": engine.recommend_votes,
-        "content": engine.recommend_content, "hybrid": engine.recommend_hybrid}[MODE](who, top_n)
+# ------------------------------------------------------------------ 1. Dashboard
+if page == "Dashboard":
+    st.subheader("📊 ภาพรวมระบบ (Dashboard)")
+    cols = st.columns(6)
+    for col, (v, l) in zip(cols, [(stat["users"], "ผู้ใช้"), (stat["phones"], "รุ่นมือถือ"),
+                                  (stat["likes"], "ความสนใจ (LIKES)"),
+                                  (stat.get("ratings", 0), "คะแนนดาว (RATED)"),
+                                  (stat["brands"], "ยี่ห้อ"), (stat["tiers"], "ระดับราคา")]):
+        col.metric(l, v)
+    st.divider()
 
-st.title("📱 ระบบแนะนำมือถือ")
-st.caption(f"คำแนะนำสำหรับ **{who}** · วิธี: **{mode}** · "
-           f"แสดง {len(recs)} รุ่นจาก {stat['phones']} รุ่นในระบบ")
+    left, right = st.columns([1.1, 1])
+    with left:
+        who = st.selectbox("ดูโปรไฟล์ผู้ใช้", USERS, index=USERS.index(DEFAULT_USER),
+                           key="dash_user")
+        import seed_data
+        prof = next((u for u in seed_data.USERS if u["user"] == who), {})
+        liked = engine.liked_phones(who)
+        sims = engine.similar_users(who)
+        st.markdown(f"### โปรไฟล์: {who}")
+        st.write(f"**กลุ่มรสนิยม:** {prof.get('group','-')} · **อายุ:** {prof.get('age','-')} ปี")
+        st.write(f"**สนใจแล้ว {len(liked)} รุ่น** · **คนรสนิยมใกล้ {len(sims)} คน**")
+        rows = [{"รุ่น": dname(p["phone_id"]), "ระดับราคา": p["tier"],
+                 "ดาวที่ให้": RATINGS.get(p["phone_id"], {}).get("avg_stars", "-")}
+                for p in liked]
+        st.dataframe(pd.DataFrame(rows), hide_index=True)
+    with right:
+        st.markdown("### 10 รุ่นที่มีคนสนใจมากสุด")
+        df = pd.DataFrame([{"รุ่น": dname(p["phone_id"]), "คนสนใจ": p["likes"]}
+                           for p in engine.phones()[:10]])
+        st.bar_chart(df.set_index("รุ่น"), height=280, color="#FF8833")
+        st.markdown("### จำนวนรุ่นในแต่ละระดับราคา")
+        tiers = pd.DataFrame(engine.phones())
+        st.bar_chart(tiers.groupby("tier")["phone_id"].count(), height=200, color="#4CC9F0")
 
-tabs = st.tabs(["🎯 แนะนำมือถือ", "📱 คลังรุ่นทั้งหมด", "🕸️ โครงสร้างกราฟ",
-                "🧪 เดโมสด: เพิ่มความสนใจ", "ℹ️ เกี่ยวกับระบบ"])
+    st.divider()
+    st.markdown(f"### คำแนะนำล่าสุดของ {who} (วิธีผสม)")
+    cols = st.columns(4)
+    for i, r in enumerate(engine.recommend_hybrid(who, 4)):
+        with cols[i % 4]:
+            card(r, img_w=170, ratings=RATINGS, lines=[f"⭐ คะแนน **{r.get('score')}**"])
 
-# ---------------------------------------------------------------- tab 1
-with tabs[0]:
-    liked = engine.liked_phones(who)
-    left, right = st.columns([1.05, 3])
+# ------------------------------------------------------------------ 2. Recommendations
+elif page == "Recommendations":
+    st.subheader("✨ คำแนะนำมือถือ (Recommendations)")
+    c1, c2, c3 = st.columns([1.3, 1.5, 1])
+    with c1:
+        who = st.selectbox("เลือกผู้ใช้", USERS, index=USERS.index(DEFAULT_USER), key="rec_user")
+    with c2:
+        mode = st.selectbox("วิธีให้คะแนน (เทียบได้ 5 วิธี)", list(METHODS))
+    with c3:
+        top_n = st.slider("จำนวนคำแนะนำ", 3, 8, 3)
+
+    fn = {"weighted": engine.recommend_weighted, "votes": engine.recommend_votes,
+          "content": engine.recommend_content, "hybrid": engine.recommend_hybrid,
+          "rated": engine.recommend_rated}[METHODS[mode]]
+    recs = fn(who, top_n)
+    st.caption(f"คำแนะนำสำหรับ **{who}** · วิธี **{mode}** · {len(recs)} รุ่นจาก "
+               f"{stat['phones']} รุ่นที่ระบบยังไม่เคยแนะนำให้คนนี้")
+
+    left, right = st.columns([1, 2.7])
     with left:
         st.markdown("#### สนใจอยู่แล้ว")
-        st.caption(f"รุ่นที่ {who} สนใจ — จุดเริ่มของกราฟ ({len(liked)} รุ่น)")
-        for p in liked:
+        for p in engine.liked_phones(who):
             with st.container(border=True):
-                cc1, cc2 = st.columns([1, 2.4], vertical_alignment="center")
+                cc1, cc2 = st.columns([1, 2.2], vertical_alignment="center")
                 with cc1:
-                    show_phone(p, width=105)
+                    show_phone(p, width=100)
                 with cc2:
                     st.markdown(f"**{dname(p['phone_id'])}**")
-                    st.caption(f"ระดับราคา: {p['tier']}")
+                    st.caption(f"{p['tier']} · {stars_text(RATINGS, p['phone_id'])}")
     with right:
         if not recs:
-            st.info("ยังไม่มีคำแนะนำสำหรับผู้ใช้นี้ (ข้อมูลน้อยเกินไป — cold start)")
+            st.info("ยังไม่มีคำแนะนำจากวิธีนี้ (ลองวิธีอื่น หรือเพิ่มความสนใจในหน้า Like & Rate)")
         else:
             st.markdown("#### รุ่นที่ระบบแนะนำ")
-            st.caption(f"คัดจาก {stat['phones']} รุ่นที่ {who} ยังไม่เคยสนใจ — "
-                       f"เรียงตามคะแนนของวิธี “{mode}”")
-            cols = st.columns(3)
-            for i, r in enumerate(recs):
-                with cols[i % 3]:
-                    with st.container(border=True):
-                        show_phone(r, width=180)
-                        st.markdown(f"**{dname(r['phone_id'])}**")
-                        st.caption(f"ระดับราคา: {r.get('tier','')}")
-                        if MODE == "votes":
-                            st.markdown(f"🔢 **{r['votes']} โหวต** จาก " + ", ".join(r["voters"]))
-                        elif MODE == "content":
-                            st.markdown(f"🏷️ ยี่ห้อตรง **{r.get('brand','')}** · "
-                                        f"ระดับราคาตรง **{r.get('tier','')}**")
-                        else:
-                            st.markdown(f"⭐ คะแนน **{r['score']}**")
-                            if r.get("voters"):
-                                st.caption("เพื่อนที่สนใจ: " + ", ".join(r["voters"]))
-                        if r.get("via_phones"):
-                            st.caption("เพราะคุณสนใจ: " + ", ".join(r["via_phones"]))
+            for i in range(0, len(recs), 3):
+                cols = st.columns(3)
+                for col, r in zip(cols, recs[i:i + 3]):
+                    lines = []
+                    if r.get("score") is not None:
+                        lines.append(f"⭐ คะแนน **{r['score']}**")
+                    if r.get("votes"):
+                        lines.append(f"🔢 {r['votes']} คนสนใจ")
+                    if r.get("avg_stars"):
+                        lines.append(f"🌟 ดาวจากคนที่สนใจ **{r['avg_stars']}**")
+                    if r.get("brand_matches") is not None:
+                        lines.append(f"🏷️ ยี่ห้อตรง **{r.get('brand_matches')}** · "
+                                     f"ระดับราคาตรง **{r.get('tier_matches')}**")
+                    if r.get("voters"):
+                        lines.append("👥 " + ", ".join(r["voters"]))
+                    if r.get("via_phones"):
+                        lines.append("❤️ เพราะสนใจ " + ", ".join(r["via_phones"][:2]))
+                    with col:
+                        card(r, img_w=170, ratings=RATINGS, lines=lines)
 
     st.divider()
-    st.markdown("#### ใครมีรสนิยมใกล้ " + who + " (Jaccard similarity)")
+    st.markdown(f"#### ใครมีรสนิยมใกล้ {who} (Jaccard similarity)")
     sims = engine.similar_users(who)
     if sims:
-        st.dataframe([{"ผู้ใช้": s["user"], "สนใจร่วมกัน (รุ่น)": s["common_count"],
-                       "รุ่นที่สนใจร่วม": ", ".join(dname(pid) for pid in s["common"]),
-                       "Jaccard": round(s["jaccard"], 3)} for s in sims],
+        st.dataframe(pd.DataFrame([{"ผู้ใช้": s["user"], "สนใจร่วมกัน (รุ่น)": s["common_count"],
+                                    "รุ่นที่สนใจร่วม": ", ".join(dname(p) for p in s["common"]),
+                                    "Jaccard": round(s["jaccard"], 3)} for s in sims]),
                      hide_index=True)
-    st.caption("Jaccard = |รุ่นที่สนใจร่วมกัน| ÷ |รุ่นทั้งหมดของสองคน| "
-               "→ ยิ่งใกล้ 1 ยิ่งรสนิยมเหมือนกัน น้ำหนักโหวตของคนนั้นยิ่งมาก")
+    st.caption("Jaccard = |รุ่นที่สนใจร่วมกัน| ÷ |รุ่นของสองคนรวมกัน| → ยิ่งใกล้ 1 "
+               "รสนิยมยิ่งเหมือน น้ำหนักโหวตของคนนั้นยิ่งมาก")
 
-# ---------------------------------------------------------------- tab 2
-with tabs[1]:
-    st.markdown("#### รุ่นมือถือทั้งหมดในระบบ")
+# ------------------------------------------------------------------ 3. Phone Search
+elif page == "Phone Search":
+    st.subheader("🔎 ค้นหารุ่นมือถือ (Phone Search)")
     phones = engine.phones()
-    brands = sorted({p["brand"] for p in phones})
-    c1, c2 = st.columns([2, 2])
-    q = c1.text_input("ค้นหา (รุ่น / ยี่ห้อ / ระดับราคา)", "")
-    pick = c2.selectbox("กรองตามยี่ห้อ", ["ทั้งหมด"] + brands)
+    brands = ["ทั้งหมด"] + sorted({p["brand"] for p in phones})
+    c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
+    q = c1.text_input("คำค้น (รุ่น / ยี่ห้อ)", placeholder="เช่น Galaxy, Xperia, Pixel, iPhone")
+    b = c2.selectbox("ยี่ห้อ", brands)
+    t = c3.selectbox("ระดับราคา", ["ทั้งหมด", "เรือธง", "ระดับกลาง", "ระดับเริ่มต้น"])
+    sort_by = c4.selectbox("เรียงตาม", ["คนสนใจ", "ดาวเฉลี่ย", "ชื่อรุ่น"])
+
     view = [p for p in phones
-            if (pick == "ทั้งหมด" or p["brand"] == pick)
-            and (not q or q.lower() in p["model"].lower() or q.lower() in p["brand"].lower()
-                 or q.lower() in p["tier"].lower())]
-    st.caption(f"พบ {len(view)} รุ่น")
+            if (b == "ทั้งหมด" or p["brand"] == b)
+            and (t == "ทั้งหมด" or p["tier"] == t)
+            and (not q or q.lower() in dname(p["phone_id"]).lower()
+                 or q.lower() in p["brand"].lower())]
+    if sort_by == "ดาวเฉลี่ย":
+        view.sort(key=lambda p: -RATINGS.get(p["phone_id"], {}).get("avg_stars", 0))
+    elif sort_by == "ชื่อรุ่น":
+        view.sort(key=lambda p: dname(p["phone_id"]))
+    st.write(f"พบ **{len(view)}** รุ่น จากทั้งหมด {len(phones)} รุ่น")
+    if not view:
+        st.info("ไม่พบรุ่นที่ตรงเงื่อนไข — ลองล้างคำค้นหรือเลือกยี่ห้อ “ทั้งหมด”")
     for i in range(0, len(view), 5):
         cols = st.columns(5)
-        for c, p in zip(cols, view[i:i + 5]):
-            with c, st.container(border=True):
-                show_phone(p, width=150)
-                st.markdown(f"**{dname(p['phone_id'])}**")
-                st.caption(f"{p['brand']} · {p['tier']}")
-                st.caption(f"❤️ {p['likes']} คนสนใจ")
-    st.caption("ภาพสินค้าดึงจาก Wikimedia Commons แล้วเก็บไว้ในโปรเจกต์ (assets/phones) "
+        for col, p in zip(cols, view[i:i + 5]):
+            with col:
+                card(p, img_w=150, ratings=RATINGS, lines=[f"❤️ **{p['likes']}** คนสนใจ"])
+    st.caption("ภาพสินค้าดึงจาก Wikimedia Commons แล้วเก็บไว้ในโปรเจกต์ (assets/) "
                "จึงแสดงได้แม้ไม่มีอินเทอร์เน็ต")
 
-# ---------------------------------------------------------------- tab 3
-with tabs[2]:
-    import graph_view
-    import matplotlib.pyplot as plt
+# ------------------------------------------------------------------ 4. Like & Rate
+elif page == "Like & Rate":
+    st.subheader("📝 บันทึกความสนใจ / ให้คะแนน (Like & Rate)")
+    st.caption("แก้ข้อมูลในฐานข้อมูลกราฟจริง (หรือข้อมูลในหน่วยความจำของเซสชันนี้) "
+               "แล้วคำแนะนำเปลี่ยนทันที — ไม่ต้องเทรนโมเดลใหม่")
+    who = st.selectbox("เลือกผู้ใช้", USERS, index=USERS.index(DEFAULT_USER), key="rate_user")
+    liked = engine.liked_phones(who)
+    liked_ids = {p["phone_id"] for p in liked}
+    fresh = [p for p in engine.phones() if p["phone_id"] not in liked_ids]
 
-    st.markdown("#### กราฟความสัมพันธ์ (ผู้ใช้ ↔ รุ่นมือถือ)")
-    st.caption("โหนดส้ม = ผู้ใช้ที่เลือก · ฟ้า = ผู้ใช้รสนิยมใกล้ · เหลือง = รุ่นที่สนใจแล้ว · "
-               "เขียว = รุ่นที่ระบบแนะนำ · เส้นประเขียว = เส้นทาง 3 hop")
-    fig = graph_view.draw(engine, who, recs, font=thai_font(),
-                          title=f"กราฟคำแนะนำสำหรับ {who} · {mode}")
-    st.pyplot(fig)
-    plt.close(fig)
-
-    st.markdown("##### เส้นทางการตัดสินใจของคำแนะนำอันดับ 1")
-    if recs:
-        r = recs[0]
-        via = r.get("via_phones") or [f"(ยี่ห้อ {r.get('brand')} / ระดับ {r.get('tier')})"]
-        voters = r.get("voters") or ["(ตรงกับยี่ห้อ/ระดับราคาที่ชอบ)"]
-        st.markdown(f"""
-        ```
-        {who} ──สนใจ──► {", ".join(via)}
-                          │
-                          ▼  มีคนสนใจรุ่นเดียวกัน (รสนิยมใกล้กัน)
-        {", ".join(voters)}
-                          │
-                          ▼  คนกลุ่มนี้สนใจรุ่นอื่นที่ {who} ยังไม่สนใจ
-        แนะนำ ► {r['brand']} {r['model']}
-        ```
-        """)
-
-# ---------------------------------------------------------------- tab 4
-with tabs[3]:
-    st.markdown("#### เดโมสด: เพิ่มรุ่นที่สนใจ แล้วดูว่าคำแนะนำเปลี่ยนทันที")
-    st.caption("แก้ข้อมูลในฐานข้อมูลกราฟจริง แล้วคำนวณใหม่ทันที — ไม่ต้องเทรนโมเดลใหม่")
-    state = st.session_state.get("before")
-    allphones = engine.phones()
-    liked_ids = {p["phone_id"] for p in engine.liked_phones(who)}
-    fresh = [p for p in allphones if p["phone_id"] not in liked_ids]   # รุ่นที่ยังไม่สนใจ → กดแล้วเห็นผลเปลี่ยนแน่
-    cc1, cc2, cc3 = st.columns([2, 2, 1])
-    with cc1:
-        pick = st.selectbox("เลือกให้ " + who + " สนใจรุ่นนี้ (แสดงเฉพาะรุ่นที่ยังไม่สนใจ)",
-                            [f"{p['phone_id']} · {p['brand']} {p['model']}" for p in fresh])
-    with cc2:
-        st.write("ผลก่อน–หลังจะแสดงด้านล่าง")
-    with cc3:
-        if st.button("➕ เพิ่มความสนใจ"):
-            st.session_state["before"] = {"recs": engine.recommend_weighted(who, top_n)}
-            engine.add_like(who, pick.split(" · ")[0])
+    c1, c2 = st.columns([2, 1])
+    with c1:
+        pick = st.selectbox("รุ่นมือถือ (แสดงรุ่นที่ยังไม่สนใจก่อน)",
+                            [f"{p['phone_id']} · {dname(p['phone_id'])}" for p in fresh])
+        pid = pick.split(" · ")[0]
+        stars = st.slider("ให้คะแนนดาว (ใช้เป็นสัญญาณที่ 5 ของระบบ)", 1.0, 5.0, 4.0, 0.5)
+        b1, b2, b3 = st.columns(3)
+        if b1.button("❤️ เพิ่มความสนใจ + ดาว", type="primary", use_container_width=True):
+            st.session_state["rate_before"] = engine.recommend_weighted(who, 3)
+            engine.add_like(who, pid)
+            engine.add_rating(who, pid, stars)
             st.rerun()
-    if state:
-        now = engine.recommend_weighted(who, top_n)
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**ก่อนเพิ่ม**")
-            st.dataframe([{"รุ่น": f"{r['brand']} {r['model']}", "คะแนน": r["score"]}
-                          for r in state["recs"]], hide_index=True)
-        with c2:
-            st.markdown("**หลังเพิ่ม**")
-            st.dataframe([{"รุ่น": f"{r['brand']} {r['model']}", "คะแนน": r["score"]}
-                          for r in now], hide_index=True)
-        changed = [f"{r['brand']} {r['model']}" for r in now
-                   if r["phone_id"] not in [x["phone_id"] for x in state["recs"]]]
-        st.success("รุ่นที่โผล่ใหม่หลังเพิ่มข้อมูล: " + (", ".join(changed) or "ไม่เปลี่ยน"))
+        if b2.button("⭐ ให้คะแนนรุ่นนี้", use_container_width=True):
+            engine.add_rating(who, pid, stars)
+            st.success(f"บันทึกความสัมพันธ์ RATED {{stars: {stars}}} แล้ว")
+        if b3.button("♻️ รีเฟรชผล", use_container_width=True):
+            st.rerun()
+    with c2:
+        st.markdown("**สถานะปัจจุบัน**")
+        st.write(f"- สนใจแล้ว **{len(liked)}** รุ่น")
+        st.write(f"- ให้คะแนนแล้ว **{len([1 for p in liked if p['phone_id'] in RATINGS])}** รุ่น")
+        st.write(f"- รุ่นที่ยังไม่สนใจในระบบ **{len(fresh)}** รุ่น")
+
+    before = st.session_state.get("rate_before")
+    if before is not None:
+        now = engine.recommend_weighted(who, 3)
+        b1, b2 = st.columns(2)
+        with b1:
+            st.markdown("**ก่อนเพิ่มความสนใจ**")
+            st.dataframe(pd.DataFrame([{"รุ่น": dname(r["phone_id"]), "คะแนน": r["score"]}
+                                       for r in before]), hide_index=True)
+        with b2:
+            st.markdown("**หลังเพิ่มความสนใจ**")
+            st.dataframe(pd.DataFrame([{"รุ่น": dname(r["phone_id"]), "คะแนน": r["score"]}
+                                       for r in now]), hide_index=True)
+        new = [dname(r["phone_id"]) for r in now
+               if r["phone_id"] not in [x["phone_id"] for x in before]]
+        st.success("รุ่นที่โผล่ใหม่หลังเพิ่มข้อมูล: " + (", ".join(new) or "ไม่เปลี่ยน"))
+
     st.divider()
-    st.markdown("##### แก้ข้อมูลตั้งต้นของ " + who)
-    for p in engine.liked_phones(who):
-        b1, b2 = st.columns([4, 1])
-        b1.write(f"❤️ {p['brand']} {p['model']}")
-        if b2.button("ลบ", key="del_" + p["phone_id"]):
-            engine.remove_like(who, p["phone_id"])
-            st.rerun()
+    st.markdown(f"#### รุ่นที่ {who} สนใจ — ลบได้")
+    for i in range(0, len(liked), 4):
+        cols = st.columns(4)
+        for col, p in zip(cols, liked[i:i + 4]):
+            with col:
+                with st.container(border=True):
+                    show_phone(p, width=140)
+                    st.markdown(f"**{dname(p['phone_id'])}**")
+                    st.caption(f"{p['tier']} · {stars_text(RATINGS, p['phone_id'])}")
+                    if st.button("🗑️ ลบความสนใจ", key="del_" + p["phone_id"],
+                                 use_container_width=True):
+                        engine.remove_like(who, p["phone_id"])
+                        st.rerun()
 
-# ---------------------------------------------------------------- tab 5
-with tabs[4]:
-    st.markdown("#### ระบบนี้ทำงานอย่างไร")
+# ------------------------------------------------------------------ 5. Graph Explorer
+elif page == "Graph Explorer":
+    import matplotlib.pyplot as plt
+    import graph_view
+
+    st.subheader("🕸️ สำรวจโครงสร้างกราฟ (Graph Explorer)")
+    c1, c2 = st.columns([1, 2])
+    who = c1.selectbox("โฟกัสที่ผู้ใช้", USERS, index=USERS.index(DEFAULT_USER), key="gx_user")
+    mode = c2.radio("วิธีให้คะแนนที่ใช้ไฮไลต์",
+                    ["ถ่วงน้ำหนัก (Jaccard)", "เพื่อน + ยี่ห้อ/ราคา (ผสม)"], horizontal=True)
+    fn = engine.recommend_weighted if mode.startswith("ถ่วง") else engine.recommend_hybrid
+    recs = fn(who, 3)
+
+    left, right = st.columns([2.4, 1])
+    with left:
+        fig = graph_view.draw(engine, who, recs, font=thai_font(),
+                              title=f"กราฟคำแนะนำสำหรับ {who} · {mode}")
+        st.pyplot(fig)
+        plt.close(fig)
+        if recs:
+            r = recs[0]
+            via = r.get("via_phones") or [f"(ยี่ห้อ {r.get('brand')})"]
+            voters = r.get("voters") or ["(ตรงกับยี่ห้อ/ระดับราคาที่ชอบ)"]
+            st.markdown("##### เส้นทางการตัดสินใจของคำแนะนำอันดับ 1")
+            st.code(f"""{who} ──สนใจ──► {", ".join(via)}
+                  │
+                  ▼  มีคนสนใจรุ่นเดียวกัน (รสนิยมใกล้กัน)
+{", ".join(voters)}
+                  │
+                  ▼  คนกลุ่มนี้สนใจรุ่นอื่นที่ {who} ยังไม่สนใจ
+แนะนำ ► {r['brand']} {r['model']}""", language="text")
+    with right:
+        st.markdown("**อ่านกราฟ**")
+        st.write("- 🟠 ผู้ใช้ที่เลือก · 🔵 ผู้ใช้รสนิยมใกล้")
+        st.write("- 🟡 รุ่นที่สนใจแล้ว · 🟢 รุ่นที่ระบบแนะนำ")
+        st.write("- เส้นประเขียว = เส้นทาง 3 hop")
+        st.divider()
+        st.markdown("**ขนาดกราฟในระบบ**")
+        st.write(f"- โหนด: {stat['users']} ผู้ใช้ · {stat['phones']} รุ่น · "
+                 f"{stat['brands']} ยี่ห้อ · {stat['tiers']} ระดับราคา")
+        st.write(f"- ความสัมพันธ์: {stat['likes']} LIKES · {stat.get('ratings',0)} RATED · "
+                 f"{stat['phones'] * 2} BY_BRAND/IN_TIER")
+
+    with st.expander("ดูข้อมูล edge ทั้งหมดในฐานข้อมูล (ความสัมพันธ์)"):
+        df = pd.DataFrame(engine.graph_edges())
+        st.write(f"รวม {len(df)} ความสัมพันธ์")
+        st.dataframe(df, hide_index=True)
+
+    st.divider()
+    st.markdown("#### รันคำสั่ง Cypher เอง (อ่านข้อมูลเท่านั้น)")
+    st.caption("ระบบบล็อกคำสั่งที่เขียนข้อมูล (CREATE / MERGE / DELETE / SET) — "
+               "ใช้สาธิตการ query กราฟได้อย่างปลอดภัย")
+    ex = {
+        "ผู้ใช้ที่สนใจรุ่นนี้": "MATCH (u:User)-[:LIKES]->(p:Phone {phone_id:'P05'}) "
+                              "RETURN u.user AS ผู้ใช้, p.model AS รุ่น ORDER BY u.user",
+        "รุ่น + ดาวเฉลี่ย": "MATCH (p:Phone)<-[r:RATED]-() "
+                          "RETURN p.model AS รุ่น, round(avg(r.stars)*100)/100.0 AS ดาวเฉลี่ย, "
+                          "count(r) AS จำนวนคน ORDER BY ดาวเฉลี่ย DESC LIMIT 8",
+        "ยี่ห้อที่มีคนสนใจรวมมากสุด": "MATCH (b:Brand)<-[:BY_BRAND]-(p:Phone)<-[:LIKES]-(u:User) "
+                                 "RETURN b.name AS ยี่ห้อ, count(DISTINCT u) AS คน, "
+                                 "count(DISTINCT p) AS รุ่น ORDER BY คน DESC LIMIT 5",
+    }
+    sel = st.selectbox("เลือกคำสั่งตัวอย่าง", list(ex))
+    query = st.text_area("คำสั่ง Cypher", value=ex[sel], height=110)
+    if st.button("▶️ รันคำสั่ง", type="primary"):
+        if backend == "neo4j":
+            try:
+                rows = engine.run_readonly(query)
+                st.success(f"ได้ {len(rows)} แถว")
+                st.dataframe(pd.DataFrame(rows), hide_index=True)
+            except Exception as e:
+                st.error(f"รันไม่สำเร็จ: {e}")
+        else:
+            st.warning("โหมดสาธิต (ไม่มีเซิร์ฟเวอร์ Neo4j) ไม่สามารถรัน Cypher อิสระได้ — "
+                       "คำสั่งนี้จะทำงานเมื่อตั้งค่า Neo4j ใน secrets "
+                       "(ดู docs/deploy-streamlit-cloud.md)")
+
+# ------------------------------------------------------------------ 6. Admin & Setup
+else:
+    import seed_data
+
+    st.subheader("⚙️ ผู้ดูแลระบบ: ตรวจสอบและตั้งค่าข้อมูล (Admin & Setup)")
+    st.write(f"**backend ที่ใช้อยู่:** {'Neo4j (ฐานข้อมูลกราฟจริง)' if backend == 'neo4j' else 'โหมดสาธิตในหน่วยความจำ'}"
+             f" · {backend_label}")
+
+    st.markdown("#### โครงสร้างกราฟ (schema)")
+    st.code("""(User {user, age, group})
+   │ [:LIKES]             → ความสนใจ (1 เส้น = 1 รุ่นที่สนใจ)
+   │ [:RATED {stars}]     → คะแนนดาว 1.0–5.0
+   ▼
+(Phone {phone_id, model, brand, tier, image})
+   │ [:BY_BRAND] → (Brand {name})
+   │ [:IN_TIER]  → (Tier  {name})""", language="text")
+    st.write(f"จำนวนปัจจุบัน: ผู้ใช้ {stat['users']} · รุ่น {stat['phones']} · "
+             f"LIKES {stat['likes']} · RATED {stat.get('ratings',0)} · "
+             f"ยี่ห้อ {stat['brands']} · ระดับราคา {stat['tiers']}")
+
+    st.divider()
+    st.markdown("#### สร้าง / รีเฟรชข้อมูลตัวอย่าง (idempotent — กดซ้ำได้)")
+    st.caption("คำสั่งใช้ MERGE ทั้งหมด จึงรันซ้ำได้อย่างปลอดภัย เหมาะกับตอนสาธิตหน้าห้อง")
+    c1, c2, c3 = st.columns(3)
+    if c1.button("🔄 รีโหลดข้อมูลตัวอย่าง", type="primary", use_container_width=True):
+        u, p, l = seed_data.graph_data()
+        r = seed_data.ratings_data(p)
+        try:
+            if hasattr(engine, "ensure_constraints"):
+                engine.ensure_constraints()
+            engine.import_data(u, p, l, r)
+            st.success(f"โหลดข้อมูลแล้ว: {len(u)} ผู้ใช้ / {len(p)} รุ่น / {len(l)} ความสนใจ / "
+                       f"{len(r)} คะแนนดาว")
+        except Exception as e:
+            st.error(f"โหลดไม่สำเร็จ: {type(e).__name__}: {e}")
+    if c2.button("🧹 ล้างโหนดที่ไม่มีเส้นเชื่อม", use_container_width=True):
+        try:
+            engine._run("MATCH (u:User) WHERE NOT (u)--() DELETE u")
+            engine._run("MATCH (p:Phone) WHERE NOT (p)--() DETACH DELETE p")
+            st.success("ลบโหนดที่ไม่มีเส้นเชื่อมแล้ว")
+        except Exception as e:
+            st.warning(f"โหมดสาธิตไม่รองรับการล้างข้อมูลด้วย Cypher ({type(e).__name__}) — "
+                       f"ใช้ปุ่มรีเฟรชแทนได้")
+    c3.download_button("⬇️ ดาวน์โหลดข้อมูลเป็น CSV",
+                       data=pd.DataFrame([{"phone_id": p["phone_id"], "model": p["model"],
+                                           "brand": p["brand"], "tier": p["tier"],
+                                           "likes": p["likes"]}
+                                          for p in engine.phones()]).to_csv(index=False),
+                       file_name="phones_007.csv", mime="text/csv",
+                       use_container_width=True)
+
+    st.divider()
+    st.markdown("#### ระบบนี้ทำงานอย่างไร (สำหรับผู้ตรวจ)")
     st.markdown(f"""
-**สถาปัตยกรรม** — ข้อมูลเก็บใน **Neo4j** (ฐานข้อมูลกราฟ) มี 4 ชนิดโหนด:
-`User` ({stat['users']} คน) · `Phone` ({stat['phones']} รุ่น) · `Brand` ({stat['brands']} ยี่ห้อ) ·
-`Tier` ({stat['tiers']} ระดับราคา) และ 3 ชนิดความสัมพันธ์: `LIKES` ({stat['likes']} เส้น),
-`BY_BRAND`, `IN_TIER`
+**เดิน 3 hop** — `(ผู้ใช้)-[:LIKES]->(รุ่น) <-[:LIKES]- (คนอื่น) -[:LIKES]-> (รุ่นใหม่)`
 
-**การทำงานของระบบแนะนำ (เดิน 3 hop)**
-1. `(ผู้ใช้)-[:LIKES]->(รุ่นมือถือ)` — ดูว่าผู้ใช้สนใจรุ่นไหน
-2. `(รุ่น)<-[:LIKES]-(คนอื่น)` — หาคนที่สนใจรุ่นเดียวกัน = รสนิยมใกล้กัน
-3. `(คนอื่น)-[:LIKES]->(รุ่นใหม่)` — เก็บรุ่นที่ผู้ใช้ยังไม่สนใจ แล้วจัดอันดับ
+**วิธีให้คะแนน 5 วิธี**
+1. **นับโหวต** — `count(DISTINCT other)` → 1 คน = 1 เสียง
+2. **ถ่วงน้ำหนัก** — `Σ Jaccard(เรา, คนนั้น)` โดย `Jaccard = |สนใจร่วม| ÷ |รุ่นของสองคนรวมกัน|`
+3. **ตามยี่ห้อ/ระดับราคา** — นับรุ่นที่เราเคยสนใจซึ่งยี่ห้อเดียวกัน + ระดับราคาเดียวกัน
+   (ช่วยแก้ cold start)
+4. **ผสม** — `0.6 × (คะแนนเพื่อน normalize) + 0.4 × (คะแนนยี่ห้อ/ราคา normalize)`
+5. **ถ่วงด้วยคะแนนดาว** — `Σ (Jaccard × ดาวที่เพื่อนให้ ÷ 5)` ใช้ความสัมพันธ์ `RATED {{stars}}`
 
-**สูตรให้คะแนน**
-- นับโหวต: `คะแนน = จำนวนคนที่สนใจรุ่นนั้น` (ใช้ `count(DISTINCT other)` → 1 คน = 1 เสียง)
-- ถ่วงน้ำหนัก: `คะแนน = Σ Jaccard(เรา, คนนั้น)`, `Jaccard = |สนใจร่วม| ÷ |รุ่นของสองคนรวมกัน|`
-- ตามยี่ห้อ/ราคา: นับรุ่นที่เราเคยสนใจซึ่งใช้ **ยี่ห้อ** เดียวกัน และอยู่ **ระดับราคา** เดียวกัน
-- ผสม: `0.6 × (คะแนนเพื่อน normalize) + 0.4 × (คะแนนยี่ห้อ/ราคา normalize)`
-
-**ทำไมต้องมีโหนด Brand/Tier** — ช่วยแก้ cold start: ผู้ใช้ใหม่ที่ยังไม่มีความคล้ายกับใคร
-ยังได้คำแนะนำจากยี่ห้อและระดับราคาที่ตัวเองสนใจ (เช่น งบระดับกลางก็ไม่ต้องแนะนำเรือธง)
+**การตรวจสอบที่ทำไว้**
+- เทียบผล **2 backend** (Cypher จริง vs หน่วยความจำ) ทุกผู้ใช้ × 6 การตรวจ → ตรงกันทุกข้อ
+  (`py -3.13 tools/consistency_test.py <uri> neo4j <password>`)
+- โน๊ตบุ๊กบน Colab รันจริงทุกเซลล์ มี assertion และเก็บกวาดข้อมูลทดลอง
+- ทดสอบโหมดไม่มี Neo4j แล้วว่ายังแสดงภาพสินค้าครบ
     """)
-    st.markdown("##### สถานะการเชื่อมต่อ")
-    st.write(f"- backend ที่ใช้อยู่: **({'Neo4j' if backend == 'neo4j' else 'โหมดสาธิตในหน่วยความจำ'})** "
-             f"· {backend_label}")
-    st.write("- ตรวจว่าสอง backend ให้ผลตรงกัน: `py -3.13 tools/consistency_test.py <uri> "
-             "neo4j <password>`")
-    st.markdown("##### หมายเหตุของเดโมออนไลน์")
+    st.markdown("#### หมายเหตุของเดโมออนไลน์")
     st.write("- เดโมนี้ **ไม่ต้องมีเซิร์ฟเวอร์ Neo4j** — ใช้ข้อมูลชุดเดียวกับที่โหลดเข้า Neo4j "
-             "(12 ผู้ใช้ / 23 รุ่น / 38 ความสนใจ) และผลตรงกันผ่านการทดสอบแล้ว")
-    st.write("- การกด “เพิ่ม/ลบความสนใจ” ในหน้าเดโมสด **แยกต่อผู้เข้าชม 1 คน** "
+             "และผลตรงกันผ่านการทดสอบแล้ว")
+    st.write("- การเพิ่ม/ลบความสนใจในหน้า Like & Rate **แยกต่อผู้เข้าชม 1 คน** "
              "ข้อมูลของคนอื่นไม่เปลี่ยน")
-    st.write("- ถ้าต้องการต่อ Neo4j จริง ให้ตั้งค่า `NEO4J_URI` / `NEO4J_PASSWORD` "
-             "(และ `NEO4J_DATABASE`) ใน secrets ของแอป แอปจะสลับไปใช้ฐานข้อมูลกราฟอัตโนมัติ")
+    st.write("- ต่อ Neo4j จริง: ตั้งค่า `NEO4J_URI` / `NEO4J_PASSWORD` / `NEO4J_DATABASE` "
+             "ใน secrets ของแอป (ดู docs/deploy-streamlit-cloud.md)")
 
 st.divider()
 st.caption("ระบบแนะนำมือถือ · จัดทำโดย รหัส 007 · ภาพสินค้าจาก Wikimedia Commons · "
-           "กราฟ: Neo4j · ส่วนติดต่อผู้ใช้: Streamlit")
+           "ฐานข้อมูลกราฟ: Neo4j · ส่วนติดต่อผู้ใช้: Streamlit")

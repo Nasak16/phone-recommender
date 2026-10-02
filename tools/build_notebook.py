@@ -33,6 +33,9 @@ USERS_PY = "[\n" + "".join(
     for u in users) + "]"
 LIKES_PY = "[\n" + "".join(
     "    (\"%s\", \"%s\"),\n" % (u, p) for u, p in likes) + "]"
+ratings = seed_data.ratings_data(phones)
+RATINGS_PY = "[\n" + "".join(
+    "    (\"%s\", \"%s\", %s),\n" % (u, p, s) for u, p, s in ratings) + "]"
 
 MD, PY = {}, {}
 
@@ -99,7 +102,10 @@ USERS = %s
 PHONES = %s
 
 LIKES = %s
-""" % (IMAGE_BASE, USERS_PY, PHONES_PY, LIKES_PY) + """
+
+# คะแนนดาว 1.0-5.0 ที่ผู้ใช้ให้รุ่นที่ตัวเองสนใจ (ใช้เป็นสัญญาณที่ 5 ของระบบ)
+RATINGS = %s
+""" % (IMAGE_BASE, USERS_PY, PHONES_PY, LIKES_PY, RATINGS_PY) + """
 PHONE = {p["phone_id"]: p for p in PHONES}
 BRANDS = sorted({p["brand"] for p in PHONES})
 TIERS = ["เรือธง", "ระดับกลาง", "ระดับเริ่มต้น"]
@@ -128,6 +134,12 @@ def show_cards(rows, title=None, height=190):
         elif r.get("content_score") is not None:
             badge = ("<div style='color:#38BDF8'>ยี่ห้อตรง " + str(r.get("brand_matches", 0)) +
                      " · ระดับราคาตรง " + str(r.get("tier_matches", 0)) + "</div>")
+        if r.get("avg_stars"):
+            badge += ("<div style='color:#FDE68A'>🌟 ดาวจากเพื่อน " + str(r["avg_stars"]) +
+                      "</div>")
+        elif r.get("phone_id") and avg_stars(r["phone_id"]):
+            badge += ("<div style='color:#FDE68A'>🌟 ดาวเฉลี่ย " +
+                      str(avg_stars(r["phone_id"])) + "</div>")
         why = ""
         if r.get("via_phones"):
             why = ("<div style='color:#9FB0CB;font-size:11px'>เพราะคุณสนใจ: " +
@@ -142,7 +154,19 @@ def show_cards(rows, title=None, height=190):
     html.append("</div>")
     display(HTML("".join(html)))
 
-print("ผู้ใช้", len(USERS), "คน | มือถือ", len(PHONES), "รุ่น | ความสนใจ", len(LIKES), "เส้น")
+RATING_OF = {}
+for _u, _p, _s in RATINGS:
+    RATING_OF.setdefault(_p, []).append(_s)
+
+
+def avg_stars(phone_id):
+    # ดาวเฉลี่ยของรุ่นนั้น (None = ยังไม่มีใครให้คะแนน)
+    v = RATING_OF.get(phone_id) or []
+    return round(sum(v) / len(v), 2) if v else None
+
+
+print("ผู้ใช้", len(USERS), "คน | มือถือ", len(PHONES), "รุ่น | ความสนใจ", len(LIKES),
+      "เส้น | คะแนนดาว", len(RATINGS), "รายการ")
 show_cards([{"phone_id": p["phone_id"]} for p in PHONES[:6]],
            title="ตัวอย่างรุ่นมือถือในระบบ (ภาพจริงจาก Wikimedia Commons)")"""
 
@@ -207,13 +231,24 @@ MERGE (u)-[:LIKES]->(p)
 RETURN count(*) AS likes
 '''
 
+Q_LOAD_RATINGS = '''
+UNWIND $rows AS row
+MATCH (u:User {user: row.user})
+MATCH (p:Phone {phone_id: row.phone_id})
+MERGE (u)-[rt:RATED]->(p) SET rt.stars = row.stars
+RETURN count(rt) AS ratings
+'''
+
 run(driver, Q_RESET)
 for q in Q_CONSTRAINTS:
     run(driver, q)
 print("สร้างผู้ใช้:", run(driver, Q_LOAD_USERS, rows=USERS))
 print("สร้างรุ่นมือถือ:", run(driver, Q_LOAD_PHONES, rows=PHONES))
 print("สร้างความสนใจ:", run(driver, Q_LOAD_LIKES,
-                           rows=[{"user": u, "phone_id": p} for u, p in LIKES]))"""
+                           rows=[{"user": u, "phone_id": p} for u, p in LIKES]))
+print("สร้างคะแนนดาว:", run(driver, Q_LOAD_RATINGS,
+                          rows=[{"user": u, "phone_id": p, "stars": s}
+                                for u, p, s in RATINGS]))"""
 
 MD[6] = """## ✅ ตรวจสอบว่าข้อมูลเข้าครบตามที่ออกแบบไว้
 
@@ -223,8 +258,9 @@ PY[7] = """Q_STATS = '''
 MATCH (u:User) WITH count(u) AS users
 MATCH (p:Phone) WITH users, count(p) AS phones
 MATCH ()-[r:LIKES]->() WITH users, phones, count(r) AS likes
-MATCH (b:Brand) WITH users, phones, likes, count(b) AS brands
-MATCH (t:Tier) RETURN users, phones, likes, brands, count(t) AS tiers
+MATCH ()-[rt:RATED]->() WITH users, phones, likes, count(rt) AS ratings
+MATCH (b:Brand) WITH users, phones, likes, ratings, count(b) AS brands
+MATCH (t:Tier) RETURN users, phones, likes, ratings, brands, count(t) AS tiers
 '''
 
 stats = run(driver, Q_STATS)[0]
@@ -409,11 +445,70 @@ mixed = hybrid(TARGET)
 display(pd.DataFrame(mixed))
 show_cards(mixed, title="คำแนะนำแบบผสม (เพื่อน 60% + ยี่ห้อ/ราคา 40%)")"""
 
+# ------------------------------------------------------------------ signal 5
+MD[17.5] = """## ⭐ สัญญาณที่ 5: เพื่อนถ่วงด้วย “คะแนนดาว”
+
+ข้อมูลจริงไม่ได้มีแค่ “สนใจ/ไม่สนใจ” — บางคนชอบรุ่นนั้นมาก บางคนแค่เฉย ๆ
+ระบบจึงเก็บ **คะแนนดาว 1.0–5.0** ไว้เป็นความสัมพันธ์อีกชนิด
+
+```
+(User)-[:RATED {stars: 1.0-5.0}]->(Phone)
+```
+
+สูตร: `คะแนน = Σ ( Jaccard(เรา, เพื่อน) × ดาวที่เพื่อนให้รุ่นนั้น ÷ 5 )`
+
+ต่างจากวิธี “ถ่วงน้ำหนัก” ที่นับแค่ว่าเพื่อนสนใจหรือไม่ — วิธีนี้เอา **ระดับความชอบ** มาคูณ
+คนที่ให้ 5 ดาวจึงมีน้ำหนักมากกว่าคนที่ให้ 2 ดาว แม้ Jaccard เท่ากัน"""
+
 # ------------------------------------------------------------------ all users
 MD[18] = """## 📊 คำแนะนำของทุกคนในระบบ + เทียบกับ baseline
 
 ระบบที่ใช้ได้จริงต้องตอบได้ว่า "ทุกคนได้อะไร" และมี **baseline** ให้เทียบว่า
 คำแนะนำเฉพาะบุคคลดีกว่าการแนะนำของยอดนิยม (Popular) อย่างไร"""
+
+PY[17.7] = """Q_RECO_RATED = '''
+MATCH (me:User {user: $user})-[:LIKES]->(shared:Phone)<-[:LIKES]-(other:User)
+WITH me, other, collect(DISTINCT shared.phone_id) AS common,
+     collect(DISTINCT shared.model) AS via_models
+MATCH (me)-[:LIKES]->(mine:Phone)
+WITH me, other, common, via_models, count(DISTINCT mine) AS n_mine
+MATCH (other)-[:LIKES]->(theirs:Phone)
+WITH me, other, common, via_models, n_mine, count(DISTINCT theirs) AS n_theirs
+WITH me, other, via_models,
+     toFloat(size(common)) / (n_mine + n_theirs - size(common)) AS jaccard
+MATCH (other)-[rt:RATED]->(rec:Phone)
+WHERE NOT (me)-[:LIKES]->(rec)
+RETURN rec.phone_id AS phone_id, rec.model AS model, rec.brand AS brand, rec.tier AS tier,
+       round(sum(jaccard * rt.stars / 5.0) * 1000) / 1000.0 AS score,
+       count(DISTINCT other) AS votes, collect(DISTINCT other.user) AS voters,
+       reduce(acc = [], x IN collect(DISTINCT via_models) | acc + x) AS via_phones,
+       round(avg(rt.stars) * 100) / 100.0 AS avg_stars
+ORDER BY score DESC, model
+'''
+
+rated = run(driver, Q_RECO_RATED, user=TARGET)
+display(pd.DataFrame(rated)[["model", "brand", "tier", "score", "votes", "avg_stars"]])
+show_cards(rated[:3], title="คำแนะนำที่ถ่วงด้วยคะแนนดาว (สัญญาณที่ 5) — " + TARGET)
+
+# เทียบทั้ง 5 วิธีในตารางเดียว: อันดับ 1-3 ของแต่ละวิธี
+compare = {
+    "นับโหวตเพื่อน": run(driver, Q_RECO_VOTES, user=TARGET),
+    "ถ่วงน้ำหนัก (Jaccard)": run(driver, Q_RECO_WEIGHTED, user=TARGET),
+    "ตามยี่ห้อ/ระดับราคา": run(driver, Q_RECO_CONTENT, user=TARGET),
+    "ผสม (เพื่อน+ยี่ห้อ/ราคา)": mixed,
+    "ถ่วงด้วยคะแนนดาว": rated,
+}
+rows_cmp = []
+for name, lst in compare.items():
+    top = (lst or [])[:3]
+    rows_cmp.append({"วิธีให้คะแนน": name,
+                     "อันดับ 1": top[0]["model"] if len(top) > 0 else "-",
+                     "อันดับ 2": top[1]["model"] if len(top) > 1 else "-",
+                     "อันดับ 3": top[2]["model"] if len(top) > 2 else "-"})
+display(pd.DataFrame(rows_cmp))
+print("แต่ละวิธีให้ผลต่างกัน — เลือกวิธีที่เหมาะกับโจทย์ เช่น ระบบที่ต้องอธิบายเหตุผลได้ "
+      "ใช้ถ่วงน้ำหนัก/ผสม, ระบบที่มีคะแนนดาวใช้วิธีที่ 5")"""
+
 
 PY[19] = """rows = []
 for u in USERS:
@@ -470,12 +565,13 @@ MD[22] = """## 🧠 สรุป
 
 **สิ่งที่ทำในงานนี้**
 1. ออกแบบข้อมูลชุดของตัวเอง: {NU} ผู้ใช้ × {NP} รุ่นมือถือ ({NB} ยี่ห้อ / {NT} ระดับราคา) × {NL} ความสนใจ + ภาพสินค้าจริง
-2. ออกแบบโครงสร้างกราฟ `(User)-[:LIKES]->(Phone)`, `-[:BY_BRAND]->(Brand)`, `-[:IN_TIER]->(Tier)` และโหลดเข้า Neo4j
-3. สร้างระบบแนะนำ 3 วิธี + วิธีผสม และ **แสดงภาพสินค้าในผลการแนะนำ**
+2. ออกแบบโครงสร้างกราฟ `(User)-[:LIKES]->(Phone)`, `-[:RATED {stars}]->(Phone)`, `-[:BY_BRAND]->(Brand)`, `-[:IN_TIER]->(Tier)` และโหลดเข้า Neo4j
+3. สร้างระบบแนะนำ **5 วิธี** (นับโหวต · ถ่วงน้ำหนัก Jaccard · ยี่ห้อ/ราคา · ผสม · ถ่วงด้วยคะแนนดาว)
+   และ **แสดงภาพสินค้าจริงในการ์ดคำแนะนำทุกใบ**
 4. ทดสอบ cold start, เทียบกับ baseline ยอดนิยม และยืนยันว่าคำแนะนำอธิบายย้อนหลังได้
 
 **ข้อดีของวิธีนี้**
-- ไม่ต้องมีคะแนนรีวิว/ดาว แค่รู้ว่า "ใครสนใจรุ่นไหน" ก็แนะนำได้
+- ทำงานได้แม้ไม่มีคะแนนดาว (ใช้แค่ "ใครสนใจรุ่นไหน") และถ้ามีคะแนนดาวก็ใช้เป็นสัญญาณที่ 5 เพิ่มความแม่นได้
 - อธิบายย้อนหลังได้ทุกคำแนะนำ (อ้างชื่อเพื่อนและรุ่นที่สนใจร่วมกัน)
 - เพิ่มผู้ใช้/รุ่นใหม่แล้วได้คำแนะนำใหม่ทันที ไม่ต้องเทรนโมเดลใหม่ (ดูเซลล์ cold start)
 - Cypher จัดการเรื่องนับซ้ำให้เองด้วย `count(DISTINCT ...)`
@@ -486,8 +582,13 @@ MD[22] = """## 🧠 สรุป
 - ระดับราคาแบ่งหยาบเพียง 3 ระดับ ถ้าเพิ่มช่วงงบเป็นตัวเลขจริงจะแนะนำได้ตรงใจกว่า
 
 **ตัวระบบจริง (สาธิตการใช้งาน)**
-แอป **Streamlit** ต่อ Neo4j มี 5 หน้า: แนะนำมือถือ (การ์ดมีภาพสินค้า) · คลังรุ่นทั้งหมด ·
-กราฟความสัมพันธ์ · เดโมสดเพิ่มความสนใจแล้วเห็นคำแนะนำเปลี่ยนทันที · เกี่ยวกับระบบ
+แอป **Streamlit** ต่อ Neo4j มี **6 หน้า** (โครงเดียวกับงานตัวอย่างในวิชา แต่เป็นโดเมนมือถือ):
+**Dashboard** ภาพรวม + กราฟสถิติ · **Recommendations** การ์ดคำแนะนำมีภาพสินค้าจริง +
+ตาราง Jaccard · **Phone Search** ค้นหา/กรองตามยี่ห้อและระดับราคา · **Like & Rate**
+เพิ่ม/ลบความสนใจและให้คะแนนดาว แล้วเห็นคำแนะนำเปลี่ยนทันที (ก่อน–หลัง) ·
+**Graph Explorer** วาดกราฟ + ดูตาราง edge + รัน Cypher เองได้ · **Admin & Setup**
+โครงสร้างกราฟ + ปุ่มรีโหลดข้อมูลแบบ idempotent + ดาวน์โหลด CSV
+
 รันด้วยคำสั่ง `streamlit run app.py` — โค้ดอยู่ใน GitHub: https://github.com/Nasak16/phone-recommender"""
 
 PY[23] = """# เก็บกวาดข้อมูลทดลอง แล้วตรวจว่าฐานข้อมูลกลับสู่สภาพเดิม
@@ -496,14 +597,16 @@ run(driver, "MATCH (u:User {user: $user}) DETACH DELETE u", user=NEW_USER)
 
 final = run(driver, Q_STATS)[0]
 print("ลบผู้ใช้และรุ่นทดลองแล้ว — สถานะสุดท้าย:", final)
-assert (final["users"], final["phones"], final["likes"]) == ({NU}, {NP}, {NL}), \\
-    "ข้อมูลไม่กลับสู่สภาพเดิม"
-print("ตรวจแล้ว: กลับมาครบ {NU} ผู้ใช้ / {NP} รุ่น / {NL} ความสนใจ เหมือนก่อนทดลอง cold start")
+assert (final["users"], final["phones"], final["likes"], final["ratings"]) == \
+       ({NU}, {NP}, {NL}, {NR}), "ข้อมูลไม่กลับสู่สภาพเดิม"
+print("ตรวจแล้ว: กลับมาครบ {NU} ผู้ใช้ / {NP} รุ่น / {NL} ความสนใจ / {NR} คะแนนดาว"
+      " เหมือนก่อนทดลอง cold start")
 driver.close()
 print("ปิดการเชื่อมต่อเรียบร้อย")"""
 
 
 PLACEHOLDERS = {"{NU}": len(users), "{NP}": len(phones), "{NL}": len(likes),
+                "{NR}": len(ratings),
                 "{NB}": len({p["brand"] for p in phones}),
                 "{NT}": len({p["tier"] for p in phones})}
 

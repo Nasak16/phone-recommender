@@ -14,8 +14,9 @@ Q_STATS = """
 MATCH (u:User) WITH count(u) AS users
 MATCH (p:Phone) WITH users, count(p) AS phones
 MATCH ()-[r:LIKES]->() WITH users, phones, count(r) AS likes
-MATCH (b:Brand) WITH users, phones, likes, count(b) AS brands
-MATCH (t:Tier) RETURN users, phones, likes, brands, count(t) AS tiers
+MATCH ()-[rt:RATED]->() WITH users, phones, likes, count(rt) AS ratings
+MATCH (b:Brand) WITH users, phones, likes, ratings, count(b) AS brands
+MATCH (t:Tier) RETURN users, phones, likes, ratings, brands, count(t) AS tiers
 """
 
 Q_RESET = "MATCH (n) DETACH DELETE n"
@@ -51,6 +52,21 @@ MATCH (u:User {user: row.user})
 MATCH (p:Phone {phone_id: row.phone_id})
 MERGE (u)-[:LIKES]->(p)
 RETURN count(*) AS likes
+"""
+
+Q_LOAD_RATINGS = """
+UNWIND $rows AS row
+MATCH (u:User {user: row.user})
+MATCH (p:Phone {phone_id: row.phone_id})
+MERGE (u)-[rt:RATED]->(p) SET rt.stars = row.stars
+RETURN count(rt) AS ratings
+"""
+
+Q_RATINGS = """
+MATCH (p:Phone)<-[rt:RATED]-(:User)
+RETURN p.phone_id AS phone_id, round(avg(rt.stars) * 100) / 100.0 AS avg_stars,
+       count(rt) AS n_raters
+ORDER BY avg_stars DESC, phone_id
 """
 
 Q_LIKED = """
@@ -122,6 +138,27 @@ RETURN rec.phone_id AS phone_id, rec.model AS model, rec.brand AS brand, rec.tie
 ORDER BY content_score DESC, brand_matches DESC, model
 """
 
+Q_RECO_RATED = """
+MATCH (me:User {user: $user})-[:LIKES]->(shared:Phone)<-[:LIKES]-(other:User)
+WITH me, other, collect(DISTINCT shared.phone_id) AS common,
+     collect(DISTINCT shared.model) AS via_models
+MATCH (me)-[:LIKES]->(mine:Phone)
+WITH me, other, common, via_models, count(DISTINCT mine) AS n_mine
+MATCH (other)-[:LIKES]->(theirs:Phone)
+WITH me, other, common, via_models, n_mine, count(DISTINCT theirs) AS n_theirs
+WITH me, other, via_models,
+     toFloat(size(common)) / (n_mine + n_theirs - size(common)) AS jaccard
+MATCH (other)-[rt:RATED]->(rec:Phone)
+WHERE NOT (me)-[:LIKES]->(rec)
+RETURN rec.phone_id AS phone_id, rec.model AS model, rec.brand AS brand, rec.tier AS tier,
+       rec.image AS image,
+       round(sum(jaccard * rt.stars / 5.0) * 1000) / 1000.0 AS score,
+       count(DISTINCT other) AS votes, collect(DISTINCT other.user) AS voters,
+       reduce(acc = [], x IN collect(DISTINCT via_models) | acc + x) AS via_phones,
+       round(avg(rt.stars) * 100) / 100.0 AS avg_stars
+ORDER BY score DESC, model
+"""
+
 Q_POPULAR = """
 MATCH (p:Phone)<-[:LIKES]-(u:User)
 RETURN p.phone_id AS phone_id, p.model AS model, p.brand AS brand,
@@ -159,18 +196,21 @@ class PhoneRecommender:
         for q in Q_CONSTRAINTS:
             self._run(q)
 
-    def import_data(self, users, phones, likes):
+    def import_data(self, users, phones, likes, ratings=None):
         self._run(Q_LOAD_USERS, rows=[{"user": u["user"], "age": u["age"], "group": u["group"]}
                                       for u in users])
         self._run(Q_LOAD_PHONES, rows=[{k: p.get(k) for k in
                                         ("phone_id", "model", "brand", "tier", "image",
                                          "image_title")} for p in phones])
         self._run(Q_LOAD_LIKES, rows=[{"user": u, "phone_id": p} for u, p in likes])
+        if ratings:
+            self._run(Q_LOAD_RATINGS,
+                      rows=[{"user": u, "phone_id": p, "stars": s} for u, p, s in ratings])
 
     def stats(self):
         row = self._run(Q_STATS)[0]
         return {"users": row["users"], "phones": row["phones"], "likes": row["likes"],
-                "brands": row["brands"], "tiers": row["tiers"]}
+                "ratings": row["ratings"], "brands": row["brands"], "tiers": row["tiers"]}
 
     def users(self):
         return [r["user"] for r in
@@ -200,6 +240,35 @@ class PhoneRecommender:
 
     def recommend_content(self, user, top_n=5):
         return self._run(Q_RECO_CONTENT, user=user)[:top_n]
+
+    def recommend_rated(self, user, top_n=5):
+        """สัญญาณที่ 5: ให้เพื่อนที่รสนิยมใกล้ถ่วงด้วย “คะแนนดาว” ที่เขาให้รุ่นนั้น"""
+        return self._run(Q_RECO_RATED, user=user)[:top_n]
+
+    def rating_stats(self):
+        """ดาวเฉลี่ยของแต่ละรุ่น (ใช้แสดงบนการ์ด)"""
+        return {r["phone_id"]: r for r in self._run(Q_RATINGS)}
+
+    def run_readonly(self, query, limit=300):
+        """รัน Cypher แบบอ่านข้อมูลเท่านั้น (ใช้ในหน้า Graph Explorer / Admin)"""
+        q = query.strip().rstrip(";").strip()
+        if not q:
+            raise ValueError("พิมพ์คำสั่ง Cypher ก่อน")
+        banned = ("CREATE ", "MERGE ", "DELETE ", "DETACH ", " SET ", "REMOVE ", "DROP ",
+                  "LOAD CSV", "CALL DB", "CALL APOC", "FOREACH ")
+        up = " " + q.upper().replace("\n", " ") + " "
+        hit = [b for b in banned if b in up]
+        if hit:
+            raise ValueError("หน้านี้อนุญาตเฉพาะคำสั่งอ่านข้อมูล (MATCH / RETURN / WITH) — พบ %s"
+                             % ", ".join(h.strip() for h in hit))
+        return self._run(q)[:limit]
+
+    def add_rating(self, user, phone_id, stars):
+        self._run("""
+            MERGE (u:User {user: $user}) SET u.node_type = 'user'
+            WITH u MATCH (p:Phone {phone_id: $phone_id})
+            MERGE (u)-[rt:RATED]->(p) SET rt.stars = $stars""",
+                  user=user, phone_id=phone_id, stars=float(stars))
 
     def recommend_hybrid(self, user, top_n=5, weight_collab=0.6):
         """รวมสัญญาณเพื่อน (ถ่วง Jaccard) กับสัญญาณยี่ห้อ/ระดับราคา แล้ว normalize เป็น 0-1"""
