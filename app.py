@@ -200,8 +200,8 @@ with st.sidebar:
         """<div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px 0">
         <div style="width:46px;height:46px;border-radius:50%;background:#FF8833;color:#0E1626;
         display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">
-        N</div><div><b>Nasak16</b><br><span style="color:#9FB0CB;font-size:12px">
-        ผู้ดูแลระบบ</span></div></div>""", unsafe_allow_html=True)
+        N</div><div><b>Nasak 664245007</b><br><span style="color:#9FB0CB;font-size:12px">
+        ผู้ดูแลระบบ · 66/43</span></div></div>""", unsafe_allow_html=True)
     page = st.radio("เมนู", PAGES, format_func=lambda p: f"{p} · {PAGE_TH[p]}")
     st.divider()
     st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
