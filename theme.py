@@ -71,6 +71,16 @@ div[data-testid="stVerticalBlockBorderWrapper"] img {
     border: none;
 }
 .stButton > button p { color: #ffffff; font-family: 'Prompt', sans-serif; }
+div[data-testid="stLinkButton"] a {
+    background: linear-gradient(90deg, #0066ff, #00b4ff); color: #ffffff !important;
+    font-weight: 600; border: none !important; border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,140,255,0.35); transition: all .2s;
+}
+div[data-testid="stLinkButton"] a:hover {
+    filter: brightness(1.12); color: #ffffff !important;
+    box-shadow: 0 6px 18px rgba(0,180,255,0.5);
+}
+div[data-testid="stLinkButton"] a p { color: #ffffff !important; font-family: 'Prompt', sans-serif; }
 
 /* ---------- ตัวชี้วัด ---------- */
 div[data-testid="stMetric"] {
@@ -162,6 +172,21 @@ hr { border-color: #1b3a63; }
     display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
 }
 .lbtn { flex: 0 0 auto; }
+/* ---------- การ์ดหน้าแรก (hub): ใช้ key ของ container (Streamlit 1.6x เพิ่มคลาส st-key-*) ---------- */
+div[class*="st-key-card_"] {
+    background: #0b1220; border: 1px solid #1b3a63 !important;
+    border-radius: 18px; padding: 16px 16px 10px 16px; min-height: 215px;
+    box-shadow: 0 4px 15px rgba(0,120,255,0.10); transition: all .3s ease;
+}
+div[class*="st-key-card_"]:hover {
+    transform: translateY(-4px); border-color: #00b4ff !important;
+    box-shadow: 0 8px 25px rgba(0,180,255,0.28);
+}
+
+.cardicon { font-size: 1.9rem; line-height: 1.1; }
+.cardtitle { font-weight: 700; color: #eaf3ff; font-size: 1.02rem; margin: 4px 0 2px 0; }
+.carddesc { color: #8fa8c8; font-size: .8rem; line-height: 1.45; min-height: 52px; margin-bottom: 4px; }
+
 .lcard .tagline {
     color: #38d0ff; font-size: .72rem; letter-spacing: .5px; margin-bottom: 6px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -206,10 +231,23 @@ def hero(text=None):
     st.markdown(text or HERO, unsafe_allow_html=True)
 
 
-def card_html(icon, title, desc, url, label="เปิดแอป →", tagline=None, height=230):
+def hub_title(title, subtitle):
+    """หัวเรื่องหน้าแรกแบบ hub: จัดกลาง ตัวอักษรไล่สี + คำโปรย"""
+    st.markdown(f"""
+<div style="text-align:center;margin:6px 0 22px 0">
+    <h1 style="font-size:2.35rem;margin:0;font-family:'Orbitron','Prompt',sans-serif;
+        background:linear-gradient(90deg,#00b4ff,#7fe3ff);-webkit-background-clip:text;
+        -webkit-text-fill-color:transparent">{title}</h1>
+    <p style="color:#8fa8c8;letter-spacing:1.5px;margin-top:10px;font-size:.95rem">{subtitle}</p>
+</div>""", unsafe_allow_html=True)
+
+
+def card_html(icon, title, desc, url, label="เปิดแอป →", tagline=None, height=230, new_tab=True):
     """การ์ดลิงก์สไตล์เดียวกับ hub (ใช้ unsafe_allow_html)"""
     tag = f'<div class="tagline">{tagline}</div>' if tagline else ""
     return (f'<div class="lcard" style="height:{height}px">'
             f'<div><div class="icon">{icon}</div>{tag}'
             f'<h3>{title}</h3><p>{desc}</p></div>'
-            f'<a class="lbtn" href="{url}" target="_blank" rel="noopener">{label}</a></div>')
+            f'<a class="lbtn" href="{url}"'
+            + (' target="_blank" rel="noopener"' if new_tab else '') +
+            f'>{label}</a></div>')

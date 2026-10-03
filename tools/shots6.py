@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ตรวจ + ถ่ายภาพทั้ง 6 หน้าของแอป (ใช้ยืนยันว่าทุกหน้าทำงานจริง)"""
+"""ตรวจ + ถ่ายภาพทุกหน้าของแอป (ใช้ยืนยันว่าทุกหน้าทำงานจริง)"""
 import os
 import sys
 import time
@@ -14,11 +14,15 @@ os.makedirs(OUT, exist_ok=True)
 URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8783"
 TAG = sys.argv[2] if len(sys.argv) > 2 else "local"
 
-PAGES = [("Dashboard", "ภาพรวมระบบ"), ("Recommendations", "แนะนำมือถือ"),
+# ลำดับต้องตรงกับเมนูในแอป (radio index)
+PAGES = [("Home", "หน้าหลัก"), ("Dashboard", "ภาพรวมระบบ"), ("Recommendations", "แนะนำมือถือ"),
          ("Phone Search", "ค้นหารุ่นมือถือ"), ("Like & Rate", "ถูกใจ / ให้คะแนน"),
-         ("Graph Explorer", "สำรวจโครงสร้างกราฟ"), ("Admin & Setup", "ผู้ดูแลระบบ")]
+         ("Graph Explorer", "สำรวจโครงสร้างกราฟ"), ("Index & Links", "งานทั้งหมด (Index)"),
+         ("Admin & Setup", "ผู้ดูแลระบบ")]
 
 CHECK = {
+    "Home": ["เข้าไปใช้งานแต่ละส่วน", "ระบบแนะนำมือถือ", "เปิด Dashboard", "เปิด GitHub"],
+    "Index & Links": ["งานทั้งหมดของเรา", "หน้า index"],
     "Dashboard": ["ภาพรวมระบบ", "ความสนใจ (LIKES)", "คนสนใจ", "โปรไฟล์"],
     "Recommendations": ["คำแนะนำสำหรับ", "Jaccard", "รุ่นที่ระบบแนะนำ"],
     "Phone Search": ["พบ", "รุ่น"],

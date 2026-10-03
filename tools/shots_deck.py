@@ -15,7 +15,8 @@ os.makedirs(OUT, exist_ok=True)
 URL = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8783"
 
 # ลำดับต้องตรงกับเมนูในแอป (radio index)
-PAGES = [("Dashboard", "ภาพรวมระบบ", "07_dashboard"),
+PAGES = [("Home", "หน้าหลัก", "06_home"),
+         ("Dashboard", "ภาพรวมระบบ", "07_dashboard"),
          ("Recommendations", "แนะนำมือถือ", "01_hero"),
          ("Phone Search", "ค้นหารุ่นมือถือ", "02_catalog"),
          ("Like & Rate", "ถูกใจ / ให้คะแนน", "04_rate"),
