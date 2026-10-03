@@ -14,6 +14,12 @@
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/Nasak16/8667b219bbff8253335ec78f78b5c79e/PhoneRecommender_Neo4j_007.ipynb)
 
+### 🌐 เปิดใช้เว็บแอปออนไลน์ (ข้อมูลจริงจาก Neo4j Aura)
+
+**https://phone-recommender-5tqx7desto7ariadwgxyhi.streamlit.app/**
+
+> Aura Free จะหลับเมื่อไม่มีคนใช้ 3 วัน — เปิดครั้งแรกอาจรอ ~20-30 วิ แล้วกด 🔄 ที่มุมขวา
+
 </div>
 
 ---
