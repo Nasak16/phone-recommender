@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """ระบบแนะนำมือถือ (Phone Recommender System) — Neo4j + Streamlit
-รหัส 007 · งาน: พัฒนาระบบแนะนำเป็นระบบของตัวเอง
+รหัส 664245007 · งาน: พัฒนาระบบแนะนำเป็นระบบของตัวเอง
 
 เมนู 6 หน้า (โครงเดียวกับงานตัวอย่างในวิชา — ทำเป็นโดเมนมือถือและเพิ่มของที่มากกว่า)
   Dashboard / Recommendations / Phone Search / Like & Rate / Graph Explorer / Admin & Setup
@@ -670,5 +670,5 @@ else:
              "ใน secrets ของแอป (ดู docs/deploy-streamlit-cloud.md)")
 
 st.divider()
-st.caption("ระบบแนะนำมือถือ · จัดทำโดย รหัส 007 · ภาพสินค้าจาก Wikimedia Commons · "
+st.caption("ระบบแนะนำมือถือ · จัดทำโดย นาย ณศักดิ์ ฉายแสงรัตน์ รหัส 664245007 · ภาพสินค้าจาก Wikimedia Commons · "
            "ฐานข้อมูลกราฟ: Neo4j · ส่วนติดต่อผู้ใช้: Streamlit")
