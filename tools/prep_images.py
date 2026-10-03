@@ -47,7 +47,6 @@ for src, dst in [("shots/01_hero.png", "app_reco.png"),
                  ("shots/04_rate.png", "app_demo.png"),
                  ("shots/05_admin.png", "app_about.png"),
                  ("shots/07_dashboard.png", "app_dashboard.png"),
-                 ("shots/06_home.png", "app_home.png"),
                  ("shots/06_reco_card.png", "app_top.png")]:
     p = os.path.join(ROOT, src)
     if os.path.exists(p):

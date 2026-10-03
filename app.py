@@ -11,8 +11,6 @@
 import os
 import sys
 
-from urllib.parse import quote
-
 import pandas as pd
 import streamlit as st
 
@@ -25,16 +23,12 @@ st.set_page_config(page_title="ระบบแนะนำมือถือ | N
                    layout="wide")
 theme.inject()
 
-PAGES = ["Home", "Dashboard", "Recommendations", "Phone Search", "Like & Rate",
+PAGES = ["Dashboard", "Recommendations", "Phone Search", "Like & Rate",
          "Graph Explorer", "Index & Links", "Admin & Setup"]
-PAGE_TH = {"Home": "หน้าหลัก", "Dashboard": "ภาพรวมระบบ", "Recommendations": "แนะนำมือถือ",
+PAGE_TH = {"Dashboard": "ภาพรวมระบบ", "Recommendations": "แนะนำมือถือ",
            "Phone Search": "ค้นหารุ่นมือถือ", "Like & Rate": "ถูกใจ / ให้คะแนน",
            "Graph Explorer": "สำรวจโครงสร้างกราฟ", "Index & Links": "งานทั้งหมด (Index)",
            "Admin & Setup": "ผู้ดูแลระบบ"}
-REPO_URL = "https://github.com/Nasak16/phone-recommender"
-COLAB_URL = ("https://colab.research.google.com/gist/Nasak16/"
-             "8667b219bbff8253335ec78f78b5c79e/PhoneRecommender_Neo4j_007.ipynb")
-INDEX_URL = "https://nasak16.github.io/homework/"
 METHODS = {
     "ถ่วงน้ำหนัก (Jaccard)": "weighted",
     "นับโหวตเพื่อน": "votes",
@@ -208,18 +202,7 @@ with st.sidebar:
         display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px">
         N</div><div><b>Nasak16</b><br><span style="color:#9FB0CB;font-size:12px">
         ผู้ดูแลระบบ</span></div></div>""", unsafe_allow_html=True)
-    # เลือกหน้าได้ 2 ทางก่อนสร้าง radio:
-    #   1) st.session_state["nav_override"] จากปุ่มการ์ดในหน้าแรก (widget ยังไม่ถูกสร้าง → ตั้งได้)
-    #   2) ?page=<ชื่อหน้า> จากลิงก์ตรง (แล้วล้างทิ้ง ไม่งั้นกดเมนูเองในแถบข้างแล้วจะถูกดึงกลับ)
-    override = st.session_state.pop("nav_override", None)
-    if override in PAGES:
-        st.session_state["nav"] = override
-    qp = st.query_params.get("page")
-    if qp:
-        if qp in PAGES:
-            st.session_state["nav"] = qp
-        st.query_params.clear()
-    page = st.radio("เมนู", PAGES, format_func=lambda p: f"{p} · {PAGE_TH[p]}", key="nav")
+    page = st.radio("เมนู", PAGES, format_func=lambda p: f"{p} · {PAGE_TH[p]}")
     st.divider()
     st.success("ฐานข้อมูล: " + backend_label, icon="🗄️")
     r1c1, r1c2 = st.columns(2)
@@ -235,62 +218,10 @@ with st.sidebar:
     st.caption(f"ข้อมูลของเราเอง {stat['users']} คน × {stat['phones']} รุ่น พร้อมภาพสินค้าจริง "
                "(ไม่ใช้ dataset สำเร็จรูป)")
 
-if page != "Home":                     # หน้าแรกมีหัวเรื่องแบบ hub ของตัวเอง ไม่ต้องซ้ำ
-    theme.hero(theme.hero_text(stat))
-
-# ------------------------------------------------------------------ 0. หน้าหลัก (hub)
-if page == "Home":
-    theme.hub_title("ระบบแนะนำมือถือ", "ศูนย์รวมทุกส่วนของระบบแนะนำบนฐานข้อมูลกราฟ Neo4j · "
-                                      "งานรหัส 007 · ข้อมูลของเราเองพร้อมภาพสินค้าจริง")
-    cols = st.columns(6)
-    for col, (v, l) in zip(cols, [(stat["users"], "ผู้ใช้"), (stat["phones"], "รุ่นมือถือ"),
-                                  (stat["likes"], "ความสนใจ (LIKES)"),
-                                  (stat.get("ratings", 0), "คะแนนดาว (RATED)"),
-                                  (stat["brands"], "ยี่ห้อ"), (stat["tiers"], "ระดับราคา")]):
-        col.metric(l, v)
-    st.write("")
-    st.markdown("#### เข้าไปใช้งานแต่ละส่วน")
-    HUB = [
-        ("📊", "Dashboard", "ตัวชี้วัด 6 ตัว · 10 รุ่นยอดนิยม · สัดส่วนระดับราคา · โปรไฟล์ผู้ใช้"),
-        ("✨", "Recommendations", "ให้คะแนน 5 วิธีเทียบกันได้ · ตาราง Jaccard · การ์ดพร้อมภาพจริง"),
-        ("🔍", "Phone Search", f"ค้นหา/กรอง/เรียงจาก {stat['phones']} รุ่น {stat['brands']} ยี่ห้อ"),
-        ("❤️", "Like & Rate", "เพิ่ม/ลบความสนใจ + ให้ดาว แล้วดูคำแนะนำเปลี่ยนทันที (before/after)"),
-        ("🕸️", "Graph Explorer", "กราฟ 3 hop · ตารางเส้นเชื่อม · ช่องรัน Cypher (อ่านอย่างเดียว)"),
-        ("🗂️", "Index & Links", "รวมงานทุกชิ้นบน GitHub + หน้า index/สไลด์/โน๊ตบุ๊ก"),
-        ("⚙️", "Admin & Setup", "schema · โหลด/รีเซ็ตข้อมูล (idempotent) · ดาวน์โหลด CSV"),
-    ]
-
-    def hub_card(col, icon, title, desc, key=None, url=None, label="เปิด →"):
-        """การ์ดหน้าแรก: ในระบบใช้ปุ่มเปลี่ยนหน้า / ลิงก์นอกใช้ปุ่มเปิดแท็บใหม่"""
-        with col, st.container(border=True, key="card_" + (key or title)):
-            st.markdown(f'<div class="cardicon">{icon}</div>'
-                        f'<div class="cardtitle">{title}</div>'
-                        f'<div class="carddesc">{desc}</div>', unsafe_allow_html=True)
-            if key:      # หน้าภายในแอป: ฝากค่าให้แถบข้างเปลี่ยนเมนูตอนเริ่มรันถัดไป
-                if st.button(f"เปิด {key} →", key=f"hub_{key}", use_container_width=True):
-                    st.session_state["nav_override"] = key
-                    st.rerun()
-            else:        # ลิงก์นอก (GitHub / Colab): เปิดแท็บใหม่
-                st.link_button(label, url, use_container_width=True)
-
-    row = st.columns(3)
-    for col, (icon, name, desc) in zip(row, HUB[:3]):
-        hub_card(col, icon, name, desc, key=name)
-    row = st.columns(3)
-    for col, (icon, name, desc) in zip(row, HUB[3:6]):
-        hub_card(col, icon, name, desc, key=name)
-    row = st.columns(3)
-    icon6, name6, desc6 = HUB[6]
-    hub_card(row[0], icon6, name6, desc6, key=name6)
-    hub_card(row[1], "📄", "โค้ดบน GitHub", "ซอร์สโค้ดทั้งหมด + คู่มือ deploy "
-             "(docs/deploy-streamlit-cloud.md)", url=REPO_URL, label="เปิด GitHub →")
-    hub_card(row[2], "📓", "โน๊ตบุ๊ก (Colab)", "อธิบายวิธีทำทีละขั้น + รัน Cypher จริง 26 เซลล์ "
-             "เปิดได้เลยบน Colab", url=COLAB_URL, label="เปิด Colab →")
-    st.caption("ระบบนี้ใช้ข้อมูลจริงจาก Neo4j เท่านั้น — ถ้าฐานข้อมูลว่างให้ไปที่หน้า Admin & Setup "
-               "แล้วกด 「🔄 รีโหลดข้อมูลตัวอย่าง」")
+theme.hero(theme.hero_text(stat))
 
 # ------------------------------------------------------------------ 1. Dashboard
-elif page == "Dashboard":
+if page == "Dashboard":
     st.subheader("📊 ภาพรวมระบบ (Dashboard)")
     cols = st.columns(6)
     for col, (v, l) in zip(cols, [(stat["users"], "ผู้ใช้"), (stat["phones"], "รุ่นมือถือ"),
