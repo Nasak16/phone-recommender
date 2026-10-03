@@ -204,7 +204,8 @@ div[class*="st-key-card_"]:hover {
 HERO = """
 <div class="hero">
     <h1>📱 ระบบแนะนำมือถือ</h1>
-    <p>Neo4j (Graph Database) + Streamlit · งานรหัส 007 · ข้อมูลของเราเอง พร้อมภาพสินค้าจริง</p>
+    <p>Neo4j (Graph Database) + Streamlit · จัดทำโดย นาย ณศักดิ์ ฉายแสงรัตน์ (Nasak) · รหัส 664245007 · กลุ่ม 66/43<br>
+    ข้อมูลของเราเอง พร้อมภาพสินค้าจริง</p>
 </div>
 """
 
@@ -216,8 +217,8 @@ def hero_text(stat=None):
     return f"""
 <div class="hero">
     <h1>📱 ระบบแนะนำมือถือ</h1>
-    <p>Neo4j (Graph Database) + Streamlit · งานรหัส 007 · ข้อมูลของเราเอง
-    {stat.get('users', 0)} คน × {stat.get('phones', 0)} รุ่น × {stat.get('likes', 0)} ความสนใจ
+    <p>Neo4j (Graph Database) + Streamlit · จัดทำโดย นาย ณศักดิ์ ฉายแสงรัตน์ (Nasak) · รหัส 664245007 · กลุ่ม 66/43<br>
+    ข้อมูลของเราเอง {stat.get('users', 0)} คน × {stat.get('phones', 0)} รุ่น × {stat.get('likes', 0)} ความสนใจ
     + {stat.get('ratings', 0)} คะแนนดาว · พร้อมภาพสินค้าจริง</p>
 </div>
 """

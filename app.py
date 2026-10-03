@@ -195,7 +195,7 @@ def user_picker(container, label, key):
 # ------------------------------------------------------------------ sidebar
 with st.sidebar:
     st.markdown("## 📱 Phone Recommender")
-    st.caption("Neo4j (Graph DB) + Streamlit · รหัส 007")
+    st.caption("Neo4j (Graph DB) + Streamlit · รหัส 664245007")
     st.markdown(
         """<div style="display:flex;gap:10px;align-items:center;margin:6px 0 10px 0">
         <div style="width:46px;height:46px;border-radius:50%;background:#FF8833;color:#0E1626;

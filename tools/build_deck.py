@@ -95,7 +95,7 @@ def header(s, kicker, title, num=None):
 
 def footer(s, num=None):
     rect(s, 0, SH - 0.34, SW, 0.34, CARD2, shape=MSO_SHAPE.RECTANGLE)
-    tb(s, 0.62, SH - 0.31, 9.5, 0.26, "ระบบแนะนำมือถือ · Neo4j + Streamlit · จัดทำโดย รหัส 007",
+    tb(s, 0.62, SH - 0.31, 9.5, 0.26, "ระบบแนะนำมือถือ · Neo4j + Streamlit · จัดทำโดย นาย ณศักดิ์ ฉายแสงรัตน์ (Nasak) รหัส 664245007",
        9, MUTED)
     if num:
         tb(s, SW - 1.15, SH - 0.31, 0.55, 0.26, str(num), 9.5, ORANGE, True, PP_ALIGN.RIGHT)
@@ -197,7 +197,7 @@ def card_phone(s, x, y, w, h, pid, lines, title=None, fit_h=1.45):
 # ---------------------------------------------------------------- 1 ปก
 s = slide()
 rect(s, 0.9, 1.0, 0.1, 1.6, ORANGE, shape=MSO_SHAPE.RECTANGLE)
-tb(s, 1.25, 0.95, 11.4, 0.4, "งาน: พัฒนาระบบแนะนำเป็นระบบของตัวเอง · รหัส 007", 14, CYAN, True)
+tb(s, 1.25, 0.95, 11.4, 0.4, "งาน: พัฒนาระบบแนะนำเป็นระบบของตัวเอง · นาย ณศักดิ์ ฉายแสงรัตน์ (Nasak) รหัส 664245007 · กลุ่ม 66/43", 13, CYAN, True)
 tb(s, 1.25, 1.35, 11.4, 1.2, "ระบบแนะนำมือถือ", 50, TEXT, True)
 tb(s, 1.25, 2.45, 11.4, 0.5, "PHONE RECOMMENDER SYSTEM · Neo4j (Graph DB) + Streamlit", 19, ORANGE, True)
 tb(s, 1.25, 3.2, 11.4, 1.2,
